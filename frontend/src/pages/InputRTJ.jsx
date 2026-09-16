@@ -120,10 +120,10 @@ export default function InputRTJ() {
               </span>
             </div>
             <h2 className="text-xl sm:text-2xl font-black mt-1 tracking-tight">
-              Input Data Remind Tracking Job (RTJ)
+              Input Data RETURN JOB (RTJ)
             </h2>
             <p className="text-xs text-slate-300 mt-1">
-              Format standar data follow-up reminder service Wira Toyota Banjarmasin
+              Data Follow UP RTJ Wira Toyota Banjarmasin
             </p>
           </div>
           <div className="hidden sm:flex w-12 h-12 rounded-2xl bg-red-600/20 border border-red-500/30 items-center justify-center text-red-400">

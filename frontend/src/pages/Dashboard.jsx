@@ -126,10 +126,10 @@ export default function Dashboard() {
             <span className="text-xs text-slate-400">Wira Toyota Banjarmasin</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-black mt-2 tracking-tight">
-            Monitoring Remind Tracking Job
+            Monitoring RETURN JOB (RTJ)
           </h2>
           <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-xl">
-            Pantau dan tindak lanjuti progres reminder service berkala serta keluhan unit pelanggan secara terstruktur.
+            Hasil dan Monitoring Tindak Lanjut Progres Keluhan Dari Follow-Up Service Berkala Unit Pelanggan Secara Terstruktur.
           </p>
         </div>
 

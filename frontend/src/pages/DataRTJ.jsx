@@ -183,11 +183,11 @@ export default function DataRTJ() {
           <div className="flex items-center space-x-2">
             <span className="w-2.5 h-2.5 rounded-full bg-toyota-red"></span>
             <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
-              Data Remind Tracking Job (RTJ)
+              Data RETURN JOB (RTJ)
             </h2>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Daftar monitoring follow-up reminder service berkala pelanggan Wira Toyota Banjarmasin
+            Daftar Monitoring Follow-Up RTJ Pelanggan Wira Toyota Banjarmasin
           </p>
         </div>
 
