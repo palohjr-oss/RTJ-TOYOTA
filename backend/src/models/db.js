@@ -1612,6 +1612,31 @@ export const db = {
       }
     ];
 
+    // Extract dynamic distinct months from actual database records
+    const monthSet = new Set();
+    store.rtj.forEach(r => {
+      if (r.tanggal_service && typeof r.tanggal_service === 'string') {
+        const parts = r.tanggal_service.split('-');
+        if (parts.length >= 2) {
+          monthSet.add(`${parts[0]}-${parts[1]}`);
+        }
+      }
+    });
+
+    const monthNames = ['JANUARI', 'FEBRUARI', 'MARET', 'APRIL', 'MEI', 'JUNI', 'JULI', 'AGUSTUS', 'SEPTEMBER', 'OKTOBER', 'NOVEMBER', 'DESEMBER'];
+    const availableMonths = Array.from(monthSet).sort().reverse().map(ym => {
+      const [y, m] = ym.split('-');
+      const mIdx = parseInt(m, 10) - 1;
+      const mName = monthNames[mIdx] || m;
+      const lastDay = new Date(parseInt(y, 10), parseInt(m, 10), 0).getDate();
+      return {
+        key: ym,
+        label: `${mName} ${y}`,
+        startDate: `${ym}-01`,
+        endDate: `${ym}-${String(lastDay).padStart(2, '0')}`
+      };
+    });
+
     return {
       donutData,
       saData,
@@ -1620,6 +1645,7 @@ export const db = {
       filterOptions: {
         saList: allSAs,
         foList: allFOs,
+        availableMonths,
         kategoriList: ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6'],
         statusList: ['Scheduled', 'Completed', 'Pending', 'Rescheduled']
       }

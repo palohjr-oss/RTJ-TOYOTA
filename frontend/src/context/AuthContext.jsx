@@ -5,10 +5,16 @@ const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('rtj_user');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('rtj_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => {
+    return !localStorage.getItem('rtj_token');
+  });
 
   useEffect(() => {
     const verifyUser = async () => {
@@ -16,12 +22,12 @@ export const AuthProvider = ({ children }) => {
       if (token) {
         try {
           const res = await api.get('/auth/me');
-          if (res.data.success) {
+          if (res.data.success && res.data.data?.user) {
             setUser(res.data.data.user);
             localStorage.setItem('rtj_user', JSON.stringify(res.data.data.user));
           }
         } catch (err) {
-          console.error('Session verify error:', err);
+          console.warn('Session verify failed, clearing session:', err);
           setUser(null);
           localStorage.removeItem('rtj_token');
           localStorage.removeItem('rtj_user');

@@ -34,7 +34,7 @@ export default function Dashboard() {
   const [statusModalRtj, setStatusModalRtj] = useState(null);
 
   // Filter state
-  const [selectedPeriod, setSelectedPeriod] = useState('JULI 2025');
+  const [selectedPeriod, setSelectedPeriod] = useState('ALL');
   const [sa, setSa] = useState('ALL');
   const [fo, setFo] = useState('ALL');
   const [status, setStatus] = useState('ALL');
@@ -49,6 +49,48 @@ export default function Dashboard() {
     periode_mulai: '',
     periode_selesai: ''
   });
+
+  // Fetch chart & filter options (Months, SAs, FOs)
+  const { data: chartData } = useQuery({
+    queryKey: ['dashboard-chart-options'],
+    queryFn: async () => {
+      const res = await api.get('/dashboard/chart');
+      return res.data.data;
+    }
+  });
+
+  const filterOptions = chartData?.filterOptions || {
+    saList: ['SUGIANTO', 'SP BATUBARA', 'RUDI', 'RONY', 'WAYAN', 'FAJAR'],
+    foList: ['Sapruddin', 'Joko prasetyo', 'Muhammad', 'Fahrurrazi'],
+    availableMonths: [],
+    statusList: ['Scheduled', 'Completed', 'Pending', 'Rescheduled']
+  };
+
+  const availableMonths = filterOptions.availableMonths || [];
+
+  const handleMonthChange = (monthKey) => {
+    setSelectedPeriod(monthKey);
+    if (monthKey === 'ALL') {
+      setPeriodeMulai('');
+      setPeriodeSelesai('');
+      setAppliedFilters(prev => ({
+        ...prev,
+        periode_mulai: '',
+        periode_selesai: ''
+      }));
+    } else {
+      const found = availableMonths.find(m => m.key === monthKey);
+      if (found) {
+        setPeriodeMulai(found.startDate);
+        setPeriodeSelesai(found.endDate);
+        setAppliedFilters(prev => ({
+          ...prev,
+          periode_mulai: found.startDate,
+          periode_selesai: found.endDate
+        }));
+      }
+    }
+  };
 
   const handleApplyFilter = (e) => {
     e?.preventDefault();
@@ -67,7 +109,7 @@ export default function Dashboard() {
     setStatus('ALL');
     setPeriodeMulai('');
     setPeriodeSelesai('');
-    setSelectedPeriod('JULI 2025');
+    setSelectedPeriod('ALL');
     setAppliedFilters({
       sa: 'ALL',
       fo: 'ALL',
@@ -93,15 +135,6 @@ export default function Dashboard() {
     }
   });
 
-  // Fetch chart & filter options
-  const { data: chartData } = useQuery({
-    queryKey: ['dashboard-chart-options'],
-    queryFn: async () => {
-      const res = await api.get('/dashboard/chart');
-      return res.data.data;
-    }
-  });
-
   const handleRefreshAll = () => {
     queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
     queryClient.invalidateQueries({ queryKey: ['rtj-list'] });
@@ -109,58 +142,51 @@ export default function Dashboard() {
     queryClient.invalidateQueries({ queryKey: ['dashboard-chart-analytics'] });
   };
 
+  const currentPeriodLabel = (() => {
+    if (selectedPeriod === 'ALL' || (!appliedFilters.periode_mulai && !appliedFilters.periode_selesai)) {
+      return 'SEMUA PERIODE';
+    }
+    const found = availableMonths.find(m => m.key === selectedPeriod);
+    if (found) return found.label;
+    if (appliedFilters.periode_mulai && appliedFilters.periode_selesai) {
+      return `${appliedFilters.periode_mulai} s/d ${appliedFilters.periode_selesai}`;
+    }
+    if (appliedFilters.periode_mulai) return `Mulai ${appliedFilters.periode_mulai}`;
+    return `Sampai ${appliedFilters.periode_selesai}`;
+  })();
+
   const baseline = summaryData?.baselineDashboard || {
     target: { firRate: '98%', successCallRate: '100%' },
-    aktual: { firRate: '100%', successCallRate: '85%' },
+    aktual: { firRate: '100%', successCallRate: '100%' },
     overview: {
-      periodTitle: selectedPeriod,
-      unitEntryTotal: 1493,
-      dataTidakTerFollowUp: '#REF!',
-      tidakTerkumpul: '#REF!',
-      twc: '#REF!',
-      wip: '#REF!',
-      others: '#REF!',
-      totalUnitFollowUp: 1465,
-      totalTerhubung: 1252,
-      totalTidakTerhubung: 184,
-      fir: 1247,
-      nonFir: 5,
-      nonFirBreakdown: { Q1: 4, Q2: 0, Q3: 1, Q4: 0, Q5: 0, Q6: 0 },
+      periodTitle: currentPeriodLabel,
+      unitEntryTotal: 0,
+      dataTidakTerFollowUp: 0,
+      tidakTerkumpul: 0,
+      twc: 0,
+      wip: 0,
+      others: 0,
+      totalUnitFollowUp: 0,
+      totalTerhubung: 0,
+      totalTidakTerhubung: 0,
+      fir: 0,
+      nonFir: 0,
+      nonFirBreakdown: { Q1: 0, Q2: 0, Q3: 0, Q4: 0, Q5: 0, Q6: 0 },
       tidakTerhubungBreakdown: {
-        tidakDiangkat: 171,
-        tidakValid: 3,
+        tidakDiangkat: 0,
+        tidakValid: 0,
         tidakAdaNada: 0,
         noTidakTerpasang: 0,
         noSalahSambung: 0,
-        noTidakAktif: 10
+        noTidakAktif: 0
       }
     },
     scrComposition: [
-      { name: 'BANJARMASIN', firRate: '100%', komposisiScr: '45%', komposisiNoScr: '13%' },
-      { name: 'SERVICE POINT', firRate: '100%', komposisiScr: '37%', komposisiNoScr: '8%' },
-      { name: 'BKT 1, 2 & 3', firRate: '100%', komposisiScr: '3%', komposisiNoScr: '2%' }
+      { name: 'BANJARMASIN', firRate: '100%', komposisiScr: '0%', komposisiNoScr: '0%' },
+      { name: 'SERVICE POINT', firRate: '100%', komposisiScr: '0%', komposisiNoScr: '0%' },
+      { name: 'BKT 1, 2 & 3', firRate: '100%', komposisiScr: '0%', komposisiNoScr: '0%' }
     ],
-    kpiTable: [
-      { kpi: 'Total Unit Entry', bjm: 809, sp: 637, bkt: 47, total: 1493 },
-      { kpi: 'Jumlah Unit Yang Harus di FU', bjm: 783, sp: 635, bkt: 47, total: 1465 },
-      { kpi: 'Jumlah Unit Yang Berhasil di Hubungi', bjm: 666, sp: 540, bkt: 46, total: 1252 },
-      { kpi: 'Jumlah Pelanggan Puas', bjm: 662, sp: 539, bkt: 46, total: 1247 },
-      { kpi: 'Jawaban TIDAK Untuk Q1', bjm: 3, sp: 1, bkt: 0, total: 4, isNegative: true },
-      { kpi: 'Jawaban TIDAK Untuk Q2', bjm: 0, sp: 0, bkt: 0, total: 0, isNegative: true },
-      { kpi: 'Jawaban TIDAK Untuk Q3', bjm: 1, sp: 0, bkt: 0, total: 1, isNegative: true },
-      { kpi: 'Jawaban TIDAK Untuk Q4', bjm: 0, sp: 0, bkt: 0, total: 0, isNegative: true },
-      { kpi: 'Jawaban TIDAK Untuk Q5', bjm: 0, sp: 0, bkt: 0, total: 0, isNegative: true },
-      { kpi: 'Jawaban TIDAK Untuk Q6', bjm: 0, sp: 0, bkt: 0, total: 0, isNegative: true },
-      { kpi: 'TIDAK TERHUBUNG', bjm: 184, sp: 118, bkt: 25, total: 327 },
-      { kpi: 'FIR Rate', bjm: '99%', sp: '100%', bkt: '100%', total: '99.6%', isRate: true },
-      { kpi: 'Success Call Rate', bjm: '85%', sp: '85%', bkt: '100%', total: '85.5%', isRate: true }
-    ]
-  };
-
-  const filterOptions = chartData?.filterOptions || {
-    saList: ['SUGIANTO', 'SP BATUBARA', 'RUDI', 'RONY', 'WAYAN', 'FAJAR'],
-    foList: ['Sapruddin', 'Joko prasetyo', 'Muhammad', 'Fahrurrazi'],
-    statusList: ['Scheduled', 'Completed', 'Pending', 'Rescheduled']
+    kpiTable: []
   };
 
   const latestRTJ = summaryData?.latestRTJ || [];
@@ -300,13 +326,13 @@ export default function Dashboard() {
               </label>
               <select
                 value={selectedPeriod}
-                onChange={(e) => setSelectedPeriod(e.target.value)}
+                onChange={(e) => handleMonthChange(e.target.value)}
                 className="text-xs rounded-xl border-slate-200 bg-slate-50 p-2 border font-bold text-slate-800"
               >
-                <option value="JULI 2025">JULI 2025</option>
-                <option value="AGUSTUS 2026">AGUSTUS 2026</option>
-                <option value="SEPTEMBER 2026">SEPTEMBER 2026</option>
-                <option value="SEMUA PERIODE">SEMUA PERIODE</option>
+                <option value="ALL">SEMUA PERIODE</option>
+                {availableMonths.map((m) => (
+                  <option key={m.key} value={m.key}>{m.label}</option>
+                ))}
               </select>
             </div>
 
@@ -334,14 +360,20 @@ export default function Dashboard() {
                 <input
                   type="date"
                   value={periodeMulai}
-                  onChange={(e) => setPeriodeMulai(e.target.value)}
+                  onChange={(e) => {
+                    setPeriodeMulai(e.target.value);
+                    setSelectedPeriod('CUSTOM');
+                  }}
                   className="text-xs rounded-xl border-slate-200 bg-slate-50 p-1.5 border"
                 />
                 <span className="text-slate-400 text-xs">-</span>
                 <input
                   type="date"
                   value={periodeSelesai}
-                  onChange={(e) => setPeriodeSelesai(e.target.value)}
+                  onChange={(e) => {
+                    setPeriodeSelesai(e.target.value);
+                    setSelectedPeriod('CUSTOM');
+                  }}
                   className="text-xs rounded-xl border-slate-200 bg-slate-50 p-1.5 border"
                 />
               </div>
@@ -373,12 +405,12 @@ export default function Dashboard() {
         {/* LEFT COLUMN: UE ALL SUMMARY & REASON BREAKDOWN */}
         <div className="lg:col-span-4 space-y-4">
           
-          {/* Main Blue Card: UE ALL JULI 2025 & Follow Up Stats */}
+          {/* Main Blue Card: UE ALL [Bulan/Periode] & Follow Up Stats */}
           <div className="bg-slate-50 rounded-2xl border-2 border-slate-800 overflow-hidden shadow-card">
             
-            {/* Header: UE ALL JULI 2025 */}
+            {/* Header: Dynamic UE ALL Periode */}
             <div className="bg-blue-600 text-white flex items-center justify-between p-3.5 font-black border-b-2 border-slate-800">
-              <span className="text-sm tracking-wide uppercase">UE ALL {selectedPeriod}</span>
+              <span className="text-sm tracking-wide uppercase">UE ALL {currentPeriodLabel}</span>
               <span className="text-xl bg-slate-900/40 px-3 py-0.5 rounded-lg border border-white/20">
                 {baseline.overview.unitEntryTotal}
               </span>

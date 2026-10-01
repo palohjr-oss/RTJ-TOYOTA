@@ -37,7 +37,7 @@ import StatCard from '../components/common/StatCard';
 import CategoryBadge from '../components/common/CategoryBadge';
 
 export default function Statistik() {
-  const [selectedPeriod, setSelectedPeriod] = useState('JULI 2025');
+  const [selectedPeriod, setSelectedPeriod] = useState('ALL');
   const [sa, setSa] = useState('ALL');
   const [periodeMulai, setPeriodeMulai] = useState('');
   const [periodeSelesai, setPeriodeSelesai] = useState('');
@@ -47,27 +47,6 @@ export default function Statistik() {
     periode_mulai: '',
     periode_selesai: ''
   });
-
-  const handleApplyFilter = (e) => {
-    e?.preventDefault();
-    setAppliedFilters({
-      sa,
-      periode_mulai: periodeMulai,
-      periode_selesai: periodeSelesai
-    });
-  };
-
-  const handleResetFilter = () => {
-    setSa('ALL');
-    setPeriodeMulai('');
-    setPeriodeSelesai('');
-    setSelectedPeriod('JULI 2025');
-    setAppliedFilters({
-      sa: 'ALL',
-      periode_mulai: '',
-      periode_selesai: ''
-    });
-  };
 
   // Fetch chart & matrix data
   const { data: chartData, isLoading } = useQuery({
@@ -82,6 +61,66 @@ export default function Statistik() {
       return res.data.data;
     }
   });
+
+  const availableMonths = chartData?.filterOptions?.availableMonths || [];
+
+  const handleMonthChange = (monthKey) => {
+    setSelectedPeriod(monthKey);
+    if (monthKey === 'ALL') {
+      setPeriodeMulai('');
+      setPeriodeSelesai('');
+      setAppliedFilters(prev => ({
+        ...prev,
+        periode_mulai: '',
+        periode_selesai: ''
+      }));
+    } else {
+      const found = availableMonths.find(m => m.key === monthKey);
+      if (found) {
+        setPeriodeMulai(found.startDate);
+        setPeriodeSelesai(found.endDate);
+        setAppliedFilters(prev => ({
+          ...prev,
+          periode_mulai: found.startDate,
+          periode_selesai: found.endDate
+        }));
+      }
+    }
+  };
+
+  const handleApplyFilter = (e) => {
+    e?.preventDefault();
+    setAppliedFilters({
+      sa,
+      periode_mulai: periodeMulai,
+      periode_selesai: periodeSelesai
+    });
+  };
+
+  const handleResetFilter = () => {
+    setSa('ALL');
+    setPeriodeMulai('');
+    setPeriodeSelesai('');
+    setSelectedPeriod('ALL');
+    setAppliedFilters({
+      sa: 'ALL',
+      periode_mulai: '',
+      periode_selesai: ''
+    });
+  };
+
+  const currentPeriodLabel = (() => {
+    if (selectedPeriod === 'ALL' || (!appliedFilters.periode_mulai && !appliedFilters.periode_selesai)) {
+      return 'SEMUA PERIODE';
+    }
+    const found = availableMonths.find(m => m.key === selectedPeriod);
+    if (found) return found.label;
+    if (appliedFilters.periode_mulai && appliedFilters.periode_selesai) {
+      return `${appliedFilters.periode_mulai} s/d ${appliedFilters.periode_selesai}`;
+    }
+    if (appliedFilters.periode_mulai) return `Mulai ${appliedFilters.periode_mulai}`;
+    return `Sampai ${appliedFilters.periode_selesai}`;
+  })();
 
   const branchColumns = chartData?.branchColumns || [
     { key: 'bjm_all', label: 'BJM ALL', isTotal: true },
@@ -273,13 +312,13 @@ export default function Statistik() {
               </label>
               <select
                 value={selectedPeriod}
-                onChange={(e) => setSelectedPeriod(e.target.value)}
+                onChange={(e) => handleMonthChange(e.target.value)}
                 className="text-xs rounded-xl border-slate-200 bg-slate-50 p-2 border font-bold text-slate-800"
               >
-                <option value="JULI 2025">JULI 2025</option>
-                <option value="AGUSTUS 2026">AGUSTUS 2026</option>
-                <option value="SEPTEMBER 2026">SEPTEMBER 2026</option>
-                <option value="SEMUA PERIODE">SEMUA PERIODE</option>
+                <option value="ALL">SEMUA PERIODE</option>
+                {availableMonths.map((m) => (
+                  <option key={m.key} value={m.key}>{m.label}</option>
+                ))}
               </select>
             </div>
 
@@ -307,14 +346,20 @@ export default function Statistik() {
                 <input
                   type="date"
                   value={periodeMulai}
-                  onChange={(e) => setPeriodeMulai(e.target.value)}
+                  onChange={(e) => {
+                    setPeriodeMulai(e.target.value);
+                    setSelectedPeriod('CUSTOM');
+                  }}
                   className="text-xs rounded-xl border-slate-200 bg-slate-50 p-1.5 border"
                 />
                 <span className="text-slate-400 text-xs">-</span>
                 <input
                   type="date"
                   value={periodeSelesai}
-                  onChange={(e) => setPeriodeSelesai(e.target.value)}
+                  onChange={(e) => {
+                    setPeriodeSelesai(e.target.value);
+                    setSelectedPeriod('CUSTOM');
+                  }}
                   className="text-xs rounded-xl border-slate-200 bg-slate-50 p-1.5 border"
                 />
               </div>
