@@ -1243,6 +1243,69 @@ export const db = {
       Q3: { count: records.filter(r => r.kategori_q === 'Q3').length, desc: 'Follow-up Keluhan / Pekerjaan Lanjutan (Job Pending)' },
       Q4: { count: records.filter(r => r.kategori_q === 'Q4').length, desc: 'Reminder Service Berkala 12 Bulan / 20.000 KM +' },
       Q5: { count: records.filter(r => r.kategori_q === 'Q5').length, desc: 'Customer Inactive / Long Overdue Service Follow-up' },
+      Q6: { count: records.filter(r => r.kategori_q === 'Q6').length, desc: 'Special Campaign / Booking Follow-up' }
+    };
+
+    // Baseline stats matching official Toyota Banjarmasin report (Gambar 1 & Gambar 2)
+    const baselineDashboard = {
+      target: {
+        firRate: '98%',
+        successCallRate: '100%'
+      },
+      aktual: {
+        firRate: '100%',
+        successCallRate: '85%'
+      },
+      overview: {
+        periodTitle: 'JULI 2025',
+        unitEntryTotal: 1493,
+        dataTidakTerFollowUp: '#REF!',
+        tidakTerkumpul: '#REF!',
+        twc: '#REF!',
+        wip: '#REF!',
+        others: '#REF!',
+        totalUnitFollowUp: 1465,
+        totalTerhubung: 1252,
+        totalTidakTerhubung: 184,
+        fir: 1247,
+        nonFir: 5,
+        nonFirBreakdown: {
+          Q1: 4,
+          Q2: 0,
+          Q3: 1,
+          Q4: 0,
+          Q5: 0,
+          Q6: 0
+        },
+        tidakTerhubungBreakdown: {
+          tidakDiangkat: 171,
+          tidakValid: 3,
+          tidakAdaNada: 0,
+          noTidakTerpasang: 0,
+          noSalahSambung: 0,
+          noTidakAktif: 10
+        }
+      },
+      scrComposition: [
+        { name: 'BANJARMASIN', firRate: '100%', komposisiScr: '45%', komposisiNoScr: '13%' },
+        { name: 'SERVICE POINT', firRate: '100%', komposisiScr: '37%', komposisiNoScr: '8%' },
+        { name: 'BKT 1, 2 & 3', firRate: '100%', komposisiScr: '3%', komposisiNoScr: '2%' }
+      ],
+      kpiTable: [
+        { kpi: 'Total Unit Entry', bjm: 809, sp: 637, bkt: 47, total: 1493 },
+        { kpi: 'Jumlah Unit Yang Harus di FU', bjm: 783, sp: 635, bkt: 47, total: 1465 },
+        { kpi: 'Jumlah Unit Yang Berhasil di Hubungi', bjm: 666, sp: 540, bkt: 46, total: 1252 },
+        { kpi: 'Jumlah Pelanggan Puas', bjm: 662, sp: 539, bkt: 46, total: 1247 },
+        { kpi: 'Jawaban TIDAK Untuk Q1', bjm: 3, sp: 1, bkt: 0, total: 4, isNegative: true },
+        { kpi: 'Jawaban TIDAK Untuk Q2', bjm: 0, sp: 0, bkt: 0, total: 0, isNegative: true },
+        { kpi: 'Jawaban TIDAK Untuk Q3', bjm: 1, sp: 0, bkt: 0, total: 1, isNegative: true },
+        { kpi: 'Jawaban TIDAK Untuk Q4', bjm: 0, sp: 0, bkt: 0, total: 0, isNegative: true },
+        { kpi: 'Jawaban TIDAK Untuk Q5', bjm: 0, sp: 0, bkt: 0, total: 0, isNegative: true },
+        { kpi: 'Jawaban TIDAK Untuk Q6', bjm: 0, sp: 0, bkt: 0, total: 0, isNegative: true },
+        { kpi: 'TIDAK TERHUBUNG', bjm: 184, sp: 118, bkt: 25, total: 327 },
+        { kpi: 'FIR Rate', bjm: '99%', sp: '100%', bkt: '100%', total: '99.6%', isRate: true },
+        { kpi: 'Success Call Rate', bjm: '85%', sp: '85%', bkt: '100%', total: '85.5%', isRate: true }
+      ]
     };
 
     return {
@@ -1252,6 +1315,7 @@ export const db = {
       pending: { count: pending, percentage: calcPct(pending) },
       rescheduled: { count: rescheduled, percentage: calcPct(rescheduled) },
       qBreakdown,
+      baselineDashboard,
       latestRTJ: records.slice(0, 5)
     };
   },
@@ -1296,13 +1360,188 @@ export const db = {
     const allSAs = [...new Set(store.rtj.map(r => r.sa).filter(Boolean))].sort();
     const allFOs = [...new Set(store.rtj.map(r => r.fo).filter(Boolean))].sort();
 
+    // Baseline Branch Matrix Data matching Image 2
+    const branchColumns = [
+      { key: 'bjm_all', label: 'BJM ALL', isTotal: true },
+      { key: 'bjm_saja', label: 'BJM SAJA' },
+      { key: 'sp_km2', label: 'SP KM2' },
+      { key: 'sp_plh', label: 'SP PLH' },
+      { key: 'sp_btl', label: 'SP BTL' },
+      { key: 'sp_ktb', label: 'SP KTB' },
+      { key: 'sp_mrb', label: 'SP MRB' },
+      { key: 'bkt_1', label: 'BKT 1' },
+      { key: 'bkt_2', label: 'BKT 2' },
+      { key: 'bkt_3', label: 'BKT 3' },
+      { key: 'bkt_4', label: 'BKT 4' },
+      { key: 'bkt_5', label: 'BKT 5' },
+      { key: 'bkt_6', label: 'BKT 6' }
+    ];
+
+    const branchMatrixRows = [
+      {
+        id: 'unit_entry',
+        label: 'UNIT ENTRY',
+        type: 'blue_primary',
+        values: {
+          bjm_all: 1493, bjm_saja: 809, sp_km2: 107, sp_plh: 109, sp_btl: 290, sp_ktb: 92, sp_mrb: 39,
+          bkt_1: 0, bkt_2: 1, bkt_3: 46, bkt_4: 0, bkt_5: 0, bkt_6: 0
+        }
+      },
+      {
+        id: 'unit_follow_up',
+        label: 'Unit Follow Up',
+        type: 'soft_blue',
+        values: {
+          bjm_all: 1465, bjm_saja: 783, sp_km2: 106, sp_plh: 109, sp_btl: 289, sp_ktb: 92, sp_mrb: 39,
+          bkt_1: 0, bkt_2: 1, bkt_3: 46, bkt_4: 0, bkt_5: 0, bkt_6: 0
+        }
+      },
+      {
+        id: 'unit_sudah_call',
+        label: 'Unit sudah di CALL',
+        type: 'soft_blue',
+        values: {
+          bjm_all: 1443, bjm_saja: 772, sp_km2: 102, sp_plh: 106, sp_btl: 286, sp_ktb: 91, sp_mrb: 39,
+          bkt_1: 0, bkt_2: 1, bkt_3: 46, bkt_4: 0, bkt_5: 0, bkt_6: 0
+        }
+      },
+      {
+        id: 'unit_belum_call',
+        label: 'Unit belum di CALL',
+        type: 'soft_red',
+        values: {
+          bjm_all: 22, bjm_saja: 11, sp_km2: 4, sp_plh: 3, sp_btl: 3, sp_ktb: 1, sp_mrb: 0,
+          bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0
+        }
+      },
+      {
+        id: 'fir',
+        label: 'FIR',
+        type: 'neutral',
+        values: {
+          bjm_all: 1247, bjm_saja: 662, sp_km2: 84, sp_plh: 95, sp_btl: 245, sp_ktb: 78, sp_mrb: 37,
+          bkt_1: 0, bkt_2: 1, bkt_3: 45, bkt_4: 0, bkt_5: 0, bkt_6: 0
+        }
+      },
+      {
+        id: 'non_fir_q1',
+        label: 'NON-FIR ( Q1 )',
+        type: 'red_danger',
+        values: {
+          bjm_all: 4, bjm_saja: 3, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 1, sp_mrb: 0,
+          bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0
+        }
+      },
+      {
+        id: 'non_fir_q2',
+        label: 'NON-FIR ( Q2 )',
+        type: 'red_danger',
+        values: {
+          bjm_all: 0, bjm_saja: 0, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0,
+          bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0
+        }
+      },
+      {
+        id: 'non_fir_q3',
+        label: 'NON-FIR ( Q3 )',
+        type: 'red_danger',
+        values: {
+          bjm_all: 1, bjm_saja: 1, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0,
+          bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0
+        }
+      },
+      {
+        id: 'non_fir_q4',
+        label: 'NON-FIR ( Q4 )',
+        type: 'red_danger',
+        values: {
+          bjm_all: 0, bjm_saja: 0, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0,
+          bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0
+        }
+      },
+      {
+        id: 'non_fir_q5',
+        label: 'NON-FIR ( Q5 )',
+        type: 'red_danger',
+        values: {
+          bjm_all: 0, bjm_saja: 0, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0,
+          bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0
+        }
+      },
+      {
+        id: 'non_fir_q6',
+        label: 'NON-FIR ( Q6 )',
+        type: 'red_danger',
+        values: {
+          bjm_all: 0, bjm_saja: 0, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0,
+          bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0
+        }
+      },
+      {
+        id: 'td',
+        label: 'Tidak diangkat(TD)',
+        type: 'yellow_warning',
+        values: {
+          bjm_all: 171, bjm_saja: 89, sp_km2: 20, sp_plh: 8, sp_btl: 41, sp_ktb: 10, sp_mrb: 2,
+          bkt_1: 0, bkt_2: 0, bkt_3: 1, bkt_4: 0, bkt_5: 0, bkt_6: 0
+        }
+      },
+      {
+        id: 'tv',
+        label: 'Tidak valid(TV)',
+        type: 'yellow_warning',
+        values: {
+          bjm_all: 3, bjm_saja: 2, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 1, sp_mrb: 0,
+          bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0
+        }
+      },
+      {
+        id: 'tn',
+        label: 'Tidak ada nada(TN)',
+        type: 'yellow_warning',
+        values: {
+          bjm_all: 0, bjm_saja: 0, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0,
+          bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0
+        }
+      },
+      {
+        id: 't',
+        label: 'No tidak terpasang(T)',
+        type: 'yellow_warning',
+        values: {
+          bjm_all: 0, bjm_saja: 0, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0,
+          bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0
+        }
+      },
+      {
+        id: 'ss',
+        label: 'No salah sambung(SS)',
+        type: 'yellow_warning',
+        values: {
+          bjm_all: 0, bjm_saja: 0, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0,
+          bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0
+        }
+      },
+      {
+        id: 'ta',
+        label: 'No tidak aktif(TA)',
+        type: 'yellow_warning',
+        values: {
+          bjm_all: 10, bjm_saja: 4, sp_km2: 0, sp_plh: 4, sp_btl: 0, sp_ktb: 2, sp_mrb: 0,
+          bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0
+        }
+      }
+    ];
+
     return {
       donutData,
       saData,
+      branchColumns,
+      branchMatrixRows,
       filterOptions: {
         saList: allSAs,
         foList: allFOs,
-        kategoriList: ['Q1', 'Q2', 'Q3', 'Q4', 'Q5'],
+        kategoriList: ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6'],
         statusList: ['Scheduled', 'Completed', 'Pending', 'Rescheduled']
       }
     };

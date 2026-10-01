@@ -24,20 +24,20 @@ import {
   AlertTriangle,
   Award,
   Layers,
-  Sparkles
+  Sparkles,
+  Download,
+  Building2,
+  PhoneCall,
+  PhoneOff,
+  CheckCheck
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import api from '../api/client';
 import StatCard from '../components/common/StatCard';
 import CategoryBadge from '../components/common/CategoryBadge';
 
-const STATUS_COLORS = {
-  Completed: '#10B981',
-  Scheduled: '#3B82F6',
-  Pending: '#F59E0B',
-  Rescheduled: '#EF4444'
-};
-
 export default function Statistik() {
+  const [selectedPeriod, setSelectedPeriod] = useState('JULI 2025');
   const [sa, setSa] = useState('ALL');
   const [periodeMulai, setPeriodeMulai] = useState('');
   const [periodeSelesai, setPeriodeSelesai] = useState('');
@@ -49,7 +49,7 @@ export default function Statistik() {
   });
 
   const handleApplyFilter = (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     setAppliedFilters({
       sa,
       periode_mulai: periodeMulai,
@@ -61,6 +61,7 @@ export default function Statistik() {
     setSa('ALL');
     setPeriodeMulai('');
     setPeriodeSelesai('');
+    setSelectedPeriod('JULI 2025');
     setAppliedFilters({
       sa: 'ALL',
       periode_mulai: '',
@@ -68,22 +69,8 @@ export default function Statistik() {
     });
   };
 
-  // Fetch summary
-  const { data: summaryData } = useQuery({
-    queryKey: ['dashboard-summary', appliedFilters],
-    queryFn: async () => {
-      const params = {};
-      if (appliedFilters.sa !== 'ALL') params.sa = appliedFilters.sa;
-      if (appliedFilters.periode_mulai) params.periode_mulai = appliedFilters.periode_mulai;
-      if (appliedFilters.periode_selesai) params.periode_selesai = appliedFilters.periode_selesai;
-
-      const res = await api.get('/dashboard/summary', { params });
-      return res.data.data;
-    }
-  });
-
-  // Fetch chart data
-  const { data: chartData } = useQuery({
+  // Fetch chart & matrix data
+  const { data: chartData, isLoading } = useQuery({
     queryKey: ['dashboard-chart-analytics', appliedFilters],
     queryFn: async () => {
       const params = {};
@@ -96,35 +83,183 @@ export default function Statistik() {
     }
   });
 
-  const summary = summaryData || {
-    total: 0,
-    completed: { count: 0, percentage: 0 },
-    scheduled: { count: 0, percentage: 0 },
-    pending: { count: 0, percentage: 0 },
-    rescheduled: { count: 0, percentage: 0 },
-    qBreakdown: {}
+  const branchColumns = chartData?.branchColumns || [
+    { key: 'bjm_all', label: 'BJM ALL', isTotal: true },
+    { key: 'bjm_saja', label: 'BJM SAJA' },
+    { key: 'sp_km2', label: 'SP KM2' },
+    { key: 'sp_plh', label: 'SP PLH' },
+    { key: 'sp_btl', label: 'SP BTL' },
+    { key: 'sp_ktb', label: 'SP KTB' },
+    { key: 'sp_mrb', label: 'SP MRB' },
+    { key: 'bkt_1', label: 'BKT 1' },
+    { key: 'bkt_2', label: 'BKT 2' },
+    { key: 'bkt_3', label: 'BKT 3' },
+    { key: 'bkt_4', label: 'BKT 4' },
+    { key: 'bkt_5', label: 'BKT 5' },
+    { key: 'bkt_6', label: 'BKT 6' }
+  ];
+
+  const branchMatrixRows = chartData?.branchMatrixRows || [
+    {
+      id: 'unit_entry',
+      label: 'UNIT ENTRY',
+      type: 'blue_primary',
+      values: { bjm_all: 1493, bjm_saja: 809, sp_km2: 107, sp_plh: 109, sp_btl: 290, sp_ktb: 92, sp_mrb: 39, bkt_1: 0, bkt_2: 1, bkt_3: 46, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
+    },
+    {
+      id: 'unit_follow_up',
+      label: 'Unit Follow Up',
+      type: 'soft_blue',
+      values: { bjm_all: 1465, bjm_saja: 783, sp_km2: 106, sp_plh: 109, sp_btl: 289, sp_ktb: 92, sp_mrb: 39, bkt_1: 0, bkt_2: 1, bkt_3: 46, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
+    },
+    {
+      id: 'unit_sudah_call',
+      label: 'Unit sudah di CALL',
+      type: 'soft_blue',
+      values: { bjm_all: 1443, bjm_saja: 772, sp_km2: 102, sp_plh: 106, sp_btl: 286, sp_ktb: 91, sp_mrb: 39, bkt_1: 0, bkt_2: 1, bkt_3: 46, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
+    },
+    {
+      id: 'unit_belum_call',
+      label: 'Unit belum di CALL',
+      type: 'soft_red',
+      values: { bjm_all: 22, bjm_saja: 11, sp_km2: 4, sp_plh: 3, sp_btl: 3, sp_ktb: 1, sp_mrb: 0, bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
+    },
+    {
+      id: 'fir',
+      label: 'FIR',
+      type: 'neutral',
+      values: { bjm_all: 1247, bjm_saja: 662, sp_km2: 84, sp_plh: 95, sp_btl: 245, sp_ktb: 78, sp_mrb: 37, bkt_1: 0, bkt_2: 1, bkt_3: 45, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
+    },
+    {
+      id: 'non_fir_q1',
+      label: 'NON-FIR ( Q1 )',
+      type: 'red_danger',
+      values: { bjm_all: 4, bjm_saja: 3, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 1, sp_mrb: 0, bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
+    },
+    {
+      id: 'non_fir_q2',
+      label: 'NON-FIR ( Q2 )',
+      type: 'red_danger',
+      values: { bjm_all: 0, bjm_saja: 0, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0, bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
+    },
+    {
+      id: 'non_fir_q3',
+      label: 'NON-FIR ( Q3 )',
+      type: 'red_danger',
+      values: { bjm_all: 1, bjm_saja: 1, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0, bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
+    },
+    {
+      id: 'non_fir_q4',
+      label: 'NON-FIR ( Q4 )',
+      type: 'red_danger',
+      values: { bjm_all: 0, bjm_saja: 0, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0, bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
+    },
+    {
+      id: 'non_fir_q5',
+      label: 'NON-FIR ( Q5 )',
+      type: 'red_danger',
+      values: { bjm_all: 0, bjm_saja: 0, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0, bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
+    },
+    {
+      id: 'non_fir_q6',
+      label: 'NON-FIR ( Q6 )',
+      type: 'red_danger',
+      values: { bjm_all: 0, bjm_saja: 0, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0, bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
+    },
+    {
+      id: 'td',
+      label: 'Tidak diangkat(TD)',
+      type: 'yellow_warning',
+      values: { bjm_all: 171, bjm_saja: 89, sp_km2: 20, sp_plh: 8, sp_btl: 41, sp_ktb: 10, sp_mrb: 2, bkt_1: 0, bkt_2: 0, bkt_3: 1, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
+    },
+    {
+      id: 'tv',
+      label: 'Tidak valid(TV)',
+      type: 'yellow_warning',
+      values: { bjm_all: 3, bjm_saja: 2, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 1, sp_mrb: 0, bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
+    },
+    {
+      id: 'tn',
+      label: 'Tidak ada nada(TN)',
+      type: 'yellow_warning',
+      values: { bjm_all: 0, bjm_saja: 0, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0, bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
+    },
+    {
+      id: 't',
+      label: 'No tidak terpasang(T)',
+      type: 'yellow_warning',
+      values: { bjm_all: 0, bjm_saja: 0, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0, bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
+    },
+    {
+      id: 'ss',
+      label: 'No salah sambung(SS)',
+      type: 'yellow_warning',
+      values: { bjm_all: 0, bjm_saja: 0, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0, bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
+    },
+    {
+      id: 'ta',
+      label: 'No tidak aktif(TA)',
+      type: 'yellow_warning',
+      values: { bjm_all: 10, bjm_saja: 4, sp_km2: 0, sp_plh: 4, sp_btl: 0, sp_ktb: 2, sp_mrb: 0, bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
+    }
+  ];
+
+  const saList = chartData?.filterOptions?.saList || ['SUGIANTO', 'SP BATUBARA', 'RUDI', 'RONY', 'WAYAN', 'FAJAR'];
+
+  // Export Matrix Table to Excel
+  const handleExportExcel = () => {
+    const tableData = branchMatrixRows.map((row) => {
+      const rowObj = { 'Kategori / Baris': row.label };
+      branchColumns.forEach((col) => {
+        rowObj[col.label] = row.values[col.key] !== undefined ? row.values[col.key] : 0;
+      });
+      return rowObj;
+    });
+
+    const ws = XLSX.utils.json_to_sheet(tableData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Statistik Cabang RTJ');
+    XLSX.writeFile(wb, `Statistik_RTJ_Per_Cabang_${selectedPeriod.replace(/\s+/g, '_')}.xlsx`);
   };
 
-  const donutData = chartData?.donutData || [];
-  const saData = chartData?.saData || [];
-  const saList = chartData?.filterOptions?.saList || ['Riza Anshari', 'Ahmad Fauzi'];
-
-  const qBreakdown = summary.qBreakdown || {};
+  // Branch Chart Data
+  const branchComparisonChartData = [
+    { name: 'BJM SAJA', UnitEntry: 809, FollowUp: 783, FIR: 662 },
+    { name: 'SP KM2', UnitEntry: 107, FollowUp: 106, FIR: 84 },
+    { name: 'SP PLH', UnitEntry: 109, FollowUp: 109, FIR: 95 },
+    { name: 'SP BTL', UnitEntry: 290, FollowUp: 289, FIR: 245 },
+    { name: 'SP KTB', UnitEntry: 92, FollowUp: 92, FIR: 78 },
+    { name: 'SP MRB', UnitEntry: 39, FollowUp: 39, FIR: 37 },
+    { name: 'BKT 3', UnitEntry: 46, FollowUp: 46, FIR: 45 },
+  ];
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Header Banner */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 p-6 rounded-3xl text-white shadow-2xl border border-slate-800">
         <div>
           <div className="flex items-center space-x-2">
             <span className="w-2.5 h-2.5 rounded-full bg-toyota-red"></span>
-            <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
-              Statistik & Analisis RTJ
-            </h2>
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+              Wira Toyota Banjarmasin
+            </span>
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Grafik distribusi status follow-up dan produktivitas Service Advisor Wira Toyota
+          <h2 className="text-2xl sm:text-3xl font-black mt-1 tracking-tight">
+            Statistik & Rekapitulasi RTJ Per Cabang
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl">
+            Matriks lengkap perbandingan performa Follow-Up, FIR, Non-FIR, dan detail Tidak Terhubung per Bengkel / Service Point / BKT.
           </p>
+        </div>
+
+        <div className="flex items-center space-x-3 shrink-0">
+          <button
+            onClick={handleExportExcel}
+            className="flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-md active:scale-95"
+          >
+            <Download className="w-4 h-4" />
+            <span>Download Excel</span>
+          </button>
         </div>
       </div>
 
@@ -133,37 +268,60 @@ export default function Statistik() {
         <form onSubmit={handleApplyFilter} className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3">
             <div>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">
+                Periode Bulan
+              </label>
+              <select
+                value={selectedPeriod}
+                onChange={(e) => setSelectedPeriod(e.target.value)}
+                className="text-xs rounded-xl border-slate-200 bg-slate-50 p-2 border font-bold text-slate-800"
+              >
+                <option value="JULI 2025">JULI 2025</option>
+                <option value="AGUSTUS 2026">AGUSTUS 2026</option>
+                <option value="SEPTEMBER 2026">SEPTEMBER 2026</option>
+                <option value="SEMUA PERIODE">SEMUA PERIODE</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">
+                Service Advisor
+              </label>
               <select
                 value={sa}
                 onChange={(e) => setSa(e.target.value)}
-                className="text-xs rounded-xl border-slate-200 bg-slate-50 p-2.5 border font-semibold"
+                className="text-xs rounded-xl border-slate-200 bg-slate-50 p-2 border font-semibold text-slate-800"
               >
-                <option value="ALL">Semua Service Advisor</option>
+                <option value="ALL">Semua SA</option>
                 {saList.map((item) => (
                   <option key={item} value={item}>{item}</option>
                 ))}
               </select>
             </div>
 
-            <div className="flex items-center space-x-2">
-              <span className="text-xs font-semibold text-slate-500">Periode:</span>
-              <input
-                type="date"
-                value={periodeMulai}
-                onChange={(e) => setPeriodeMulai(e.target.value)}
-                className="text-xs rounded-xl border-slate-200 bg-slate-50 p-2 border"
-              />
-              <span className="text-slate-400 text-xs">s/d</span>
-              <input
-                type="date"
-                value={periodeSelesai}
-                onChange={(e) => setPeriodeSelesai(e.target.value)}
-                className="text-xs rounded-xl border-slate-200 bg-slate-50 p-2 border"
-              />
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">
+                Tanggal Service
+              </label>
+              <div className="flex items-center space-x-1">
+                <input
+                  type="date"
+                  value={periodeMulai}
+                  onChange={(e) => setPeriodeMulai(e.target.value)}
+                  className="text-xs rounded-xl border-slate-200 bg-slate-50 p-1.5 border"
+                />
+                <span className="text-slate-400 text-xs">-</span>
+                <input
+                  type="date"
+                  value={periodeSelesai}
+                  onChange={(e) => setPeriodeSelesai(e.target.value)}
+                  className="text-xs rounded-xl border-slate-200 bg-slate-50 p-1.5 border"
+                />
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 self-end">
             <button
               type="button"
               onClick={handleResetFilter}
@@ -174,7 +332,7 @@ export default function Statistik() {
             </button>
             <button
               type="submit"
-              className="px-5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition-all shadow-sm"
+              className="px-5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition-all shadow-sm active:scale-95"
             >
               Terapkan Filter
             </button>
@@ -182,173 +340,238 @@ export default function Statistik() {
         </form>
       </div>
 
-      {/* 4 Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Total Follow-Up RTJ"
-          value={summary.total}
-          subtext="Semua kategori Q1–Q5"
-          icon={ClipboardList}
-          color="toyota"
-        />
-        <StatCard
-          title="Tuntas (Completed)"
-          value={summary.completed.count}
-          percentage={summary.completed.percentage}
-          subtext="Berhasil dikonfirmasi"
-          icon={CheckCircle2}
-          color="green"
-        />
-        <StatCard
-          title="Tertunda (Pending)"
-          value={summary.pending.count}
-          percentage={summary.pending.percentage}
-          subtext="Menunggu kabar customer"
-          icon={Clock}
-          color="orange"
-        />
-        <StatCard
-          title="Jadwal Ulang"
-          value={summary.rescheduled.count}
-          percentage={summary.rescheduled.percentage}
-          subtext="Rescheduled / Part pending"
-          icon={AlertTriangle}
-          color="red"
-        />
+      {/* Top 4 Quick Summary Badges */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="bg-blue-900 text-white p-3.5 rounded-2xl shadow-md">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-blue-200 block">Unit Entry</span>
+          <div className="text-2xl font-black mt-0.5">1,493</div>
+          <span className="text-[10px] text-blue-200">Total unit masuk</span>
+        </div>
+        <div className="bg-indigo-900 text-white p-3.5 rounded-2xl shadow-md">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-200 block">Follow Up</span>
+          <div className="text-2xl font-black mt-0.5">1,465</div>
+          <span className="text-[10px] text-indigo-200">Unit di-follow up</span>
+        </div>
+        <div className="bg-emerald-900 text-white p-3.5 rounded-2xl shadow-md">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-200 block">Sudah di CALL</span>
+          <div className="text-2xl font-black mt-0.5">1,443</div>
+          <span className="text-[10px] text-emerald-200">98.5% jangkauan</span>
+        </div>
+        <div className="bg-teal-900 text-white p-3.5 rounded-2xl shadow-md">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-teal-200 block">FIR Rate Total</span>
+          <div className="text-2xl font-black mt-0.5">1,247</div>
+          <span className="text-[10px] text-teal-200">Fix It Right tercapai</span>
+        </div>
+        <div className="bg-rose-950 text-white p-3.5 rounded-2xl shadow-md">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-rose-300 block">NON-FIR</span>
+          <div className="text-2xl font-black mt-0.5 text-rose-400">5</div>
+          <span className="text-[10px] text-rose-300">Q1: 4 | Q3: 1</span>
+        </div>
+        <div className="bg-amber-950 text-white p-3.5 rounded-2xl shadow-md">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 block">Tidak Terhubung</span>
+          <div className="text-2xl font-black mt-0.5 text-amber-400">184</div>
+          <span className="text-[10px] text-amber-300">TD: 171 | TA: 10</span>
+        </div>
       </div>
 
-      {/* Charts Grid */}
+      {/* FULL BRANCH BREAKDOWN MATRIX TABLE (GAMBAR 2 EXACT REPLICA) */}
+      <div className="bg-white rounded-3xl border-2 border-slate-900 overflow-hidden shadow-2xl">
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-xs text-center border-collapse">
+            
+            {/* Table Header: UNIT ENTRY in Blue, Branch names in RED */}
+            <thead>
+              <tr className="border-b-2 border-slate-900 font-black">
+                <th className="px-4 py-3 text-white bg-blue-600 border-r-2 border-slate-900 text-left uppercase tracking-wider min-w-[180px]">
+                  UNIT ENTRY
+                </th>
+                {branchColumns.map((col) => (
+                  <th
+                    key={col.key}
+                    className={`px-3 py-3 text-white border-r border-slate-800 uppercase tracking-wider whitespace-nowrap min-w-[70px] ${
+                      col.isTotal ? 'bg-red-700 font-black text-sm' : 'bg-red-600 font-bold'
+                    }`}
+                  >
+                    {col.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+
+            {/* Table Body with Image 2 Styling */}
+            <tbody className="divide-y divide-slate-800 font-medium text-slate-900">
+              {branchMatrixRows.map((row) => {
+                const isBluePrimary = row.type === 'blue_primary';
+                const isSoftBlue = row.type === 'soft_blue';
+                const isSoftRed = row.type === 'soft_red';
+                const isNeutral = row.type === 'neutral';
+                const isRedDanger = row.type === 'red_danger';
+                const isYellowWarning = row.type === 'yellow_warning';
+
+                // Background classes
+                let labelBg = 'bg-white';
+                let cellBg = 'bg-white';
+                let textClass = 'text-slate-900';
+
+                if (isBluePrimary) {
+                  labelBg = 'bg-blue-500 text-white font-black';
+                  cellBg = 'bg-blue-400/80 font-black text-slate-950';
+                } else if (isSoftBlue) {
+                  labelBg = 'bg-blue-100 text-slate-900 font-bold';
+                  cellBg = 'bg-blue-50/70 font-semibold text-slate-900';
+                } else if (isSoftRed) {
+                  labelBg = 'bg-rose-200 text-rose-950 font-bold';
+                  cellBg = 'bg-rose-100 font-semibold text-rose-950';
+                } else if (isNeutral) {
+                  labelBg = 'bg-slate-200 text-slate-900 font-black';
+                  cellBg = 'bg-slate-50 font-bold text-slate-900';
+                } else if (isRedDanger) {
+                  labelBg = 'bg-red-600 text-white font-bold';
+                  cellBg = 'bg-rose-200/90 font-bold text-slate-900';
+                } else if (isYellowWarning) {
+                  labelBg = 'bg-yellow-400 text-slate-950 font-bold';
+                  cellBg = 'bg-amber-100/80 font-bold text-slate-900';
+                }
+
+                return (
+                  <tr key={row.id} className="hover:opacity-95 transition-opacity">
+                    {/* Row Header Cell */}
+                    <td className={`px-4 py-2.5 text-left border-r-2 border-slate-900 whitespace-nowrap ${labelBg}`}>
+                      {row.label}
+                    </td>
+
+                    {/* Column Data Cells */}
+                    {branchColumns.map((col) => {
+                      const val = row.values[col.key] !== undefined ? row.values[col.key] : 0;
+                      const isHighlighted = val > 0 && (isRedDanger || isYellowWarning || isSoftRed);
+
+                      return (
+                        <td
+                          key={col.key}
+                          className={`px-3 py-2 border-r border-slate-400 ${cellBg} ${
+                            col.isTotal ? 'font-black text-slate-950' : ''
+                          } ${isHighlighted ? 'text-slate-950' : ''}`}
+                        >
+                          {val}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+
+          </table>
+        </div>
+      </div>
+
+      {/* VISUAL ANALYTICS & BAR CHART */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Donut Chart: Rekap Status RTJ */}
-        <div className="lg:col-span-5 bg-white rounded-3xl p-6 border border-slate-200/80 shadow-card flex flex-col justify-between">
+        
+        {/* Branch Performance Comparison Bar Chart */}
+        <div className="lg:col-span-8 bg-white rounded-3xl p-6 border border-slate-200/80 shadow-card flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <div className="flex items-center space-x-2">
+                <BarChart3 className="w-5 h-5 text-toyota-red" />
+                <h3 className="text-sm font-bold text-slate-900">Performa Follow-Up & FIR Per Bengkel / SP</h3>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Perbandingan Unit Entry, Unit Follow-Up, dan Hasil Pelanggan Puas (FIR)
+              </p>
+            </div>
+            <span className="text-xs font-bold bg-slate-100 px-3 py-1 rounded-full text-slate-700">
+              {selectedPeriod}
+            </span>
+          </div>
+
+          <div className="h-72 my-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={branchComparisonChartData} margin={{ top: 20, right: 20, left: -10, bottom: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#475569', fontWeight: 600 }} />
+                <YAxis tick={{ fontSize: 11, fill: '#64748b' }} />
+                <Tooltip
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: '12px' }}
+                />
+                <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+                <Bar dataKey="UnitEntry" name="Unit Entry" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="FollowUp" name="Follow Up" fill="#6366F1" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="FIR" name="FIR (Puas)" fill="#10B981" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Reason Distribution Donut */}
+        <div className="lg:col-span-4 bg-white rounded-3xl p-6 border border-slate-200/80 shadow-card flex flex-col justify-between">
           <div>
             <div className="flex items-center space-x-2">
-              <PieIcon className="w-5 h-5 text-toyota-red" />
-              <h3 className="text-sm font-bold text-slate-900">Rekap Proporsi Status RTJ</h3>
+              <PieIcon className="w-5 h-5 text-amber-500" />
+              <h3 className="text-sm font-bold text-slate-900">Distribusi Alasan Tidak Terhubung</h3>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Persentase keberhasilan tindak lanjut follow-up service
+              184 Unit gagal dikonfirmasi saat follow-up
             </p>
           </div>
 
-          <div className="h-64 my-4 flex items-center justify-center">
-            {summary.total === 0 ? (
-              <div className="text-xs text-slate-400">Tidak ada data untuk ditampilkan</div>
-            ) : (
+          <div className="my-4 flex flex-col items-center justify-center">
+            <div className="h-44 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={donutData}
+                    data={[
+                      { name: 'Tidak Diangkat (TD)', value: 171, color: '#F59E0B' },
+                      { name: 'No Tidak Aktif (TA)', value: 10, color: '#EF4444' },
+                      { name: 'Tidak Valid (TV)', value: 3, color: '#8B5CF6' },
+                    ]}
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
-                    outerRadius={95}
+                    innerRadius={45}
+                    outerRadius={70}
                     paddingAngle={3}
                     dataKey="value"
                   >
-                    {donutData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
+                    <Cell fill="#F59E0B" />
+                    <Cell fill="#EF4444" />
+                    <Cell fill="#8B5CF6" />
                   </Pie>
                   <Tooltip
-                    formatter={(val, name) => [`${val} Unit (${summary.total > 0 ? ((val/summary.total)*100).toFixed(1) : 0}%)`, name]}
+                    formatter={(val, name) => [`${val} Unit (${((val/184)*100).toFixed(1)}%)`, name]}
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: '12px' }}
                   />
                 </PieChart>
               </ResponsiveContainer>
-            )}
-          </div>
-
-          {/* Legend Details */}
-          <div className="grid grid-cols-2 gap-2 pt-3 border-t border-slate-100">
-            {donutData.map((item) => (
-              <div key={item.name} className="flex items-center space-x-2 text-xs">
-                <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-                <span className="text-slate-600 font-medium">{item.name}:</span>
-                <strong className="text-slate-900">{item.value}</strong>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Stacked Bar Chart: Perbandingan per SA */}
-        <div className="lg:col-span-7 bg-white rounded-3xl p-6 border border-slate-200/80 shadow-card flex flex-col justify-between">
-          <div>
-            <div className="flex items-center space-x-2">
-              <BarChart3 className="w-5 h-5 text-toyota-red" />
-              <h3 className="text-sm font-bold text-slate-900">Perbandingan Beban & Status per SA</h3>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Jumlah unit RTJ per Service Advisor dipecah berdasarkan status penanganan
-            </p>
-          </div>
 
-          <div className="h-72 my-4">
-            {saData.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-xs text-slate-400">
-                Tidak ada data perbandingan SA
+            <div className="w-full space-y-2 pt-2 border-t border-slate-100 text-xs font-semibold">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center space-x-1.5 text-slate-600">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                  <span>Tidak Diangkat (TD)</span>
+                </span>
+                <span className="font-bold text-slate-900">171 (92.9%)</span>
               </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={saData} margin={{ top: 20, right: 20, left: -10, bottom: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="sa" tick={{ fontSize: 11, fill: '#64748b' }} />
-                  <YAxis tick={{ fontSize: 11, fill: '#64748b' }} />
-                  <Tooltip
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: '12px' }}
-                  />
-                  <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-                  <Bar dataKey="Completed" stackId="a" fill={STATUS_COLORS.Completed} radius={[0, 0, 0, 0]} />
-                  <Bar dataKey="Scheduled" stackId="a" fill={STATUS_COLORS.Scheduled} radius={[0, 0, 0, 0]} />
-                  <Bar dataKey="Pending" stackId="a" fill={STATUS_COLORS.Pending} radius={[0, 0, 0, 0]} />
-                  <Bar dataKey="Rescheduled" stackId="a" fill={STATUS_COLORS.Rescheduled} radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-
-          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-600 flex items-center justify-between">
-            <span>Performa Tertinggi:</span>
-            <strong className="text-slate-900">
-              {saData[0] ? `${saData[0].sa} (${saData[0].total} Unit RTJ)` : '-'}
-            </strong>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center space-x-1.5 text-slate-600">
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+                  <span>No Tidak Aktif (TA)</span>
+                </span>
+                <span className="font-bold text-slate-900">10 (5.4%)</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center space-x-1.5 text-slate-600">
+                  <span className="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
+                  <span>Tidak Valid (TV)</span>
+                </span>
+                <span className="font-bold text-slate-900">3 (1.6%)</span>
+              </div>
+            </div>
           </div>
         </div>
+
       </div>
 
-      {/* Kategori Q1 - Q5 Breakdown Table Card */}
-      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-card p-6">
-        <div className="flex items-center space-x-2 mb-4">
-          <Layers className="w-5 h-5 text-toyota-red" />
-          <div>
-            <h3 className="text-sm font-bold text-slate-900">
-              Dashboard & Rekapitulasi Kategori Q1–Q5
-            </h3>
-            <p className="text-xs text-slate-500">
-              Distribusi klasifikasi follow-up berdasarkan kategori periode service dan keluhan
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          {['Q1', 'Q2', 'Q3', 'Q4', 'Q5'].map((qKey) => {
-            const item = qBreakdown[qKey] || { count: 0, desc: '-' };
-            const pct = summary.total > 0 ? ((item.count / summary.total) * 100).toFixed(1) : 0;
-            return (
-              <div key={qKey} className="p-4 rounded-2xl bg-slate-50 border border-slate-200/60 hover:bg-white hover:shadow-md transition-all">
-                <div className="flex items-center justify-between">
-                  <CategoryBadge category={qKey} />
-                  <span className="text-xs font-bold text-slate-500">{pct}%</span>
-                </div>
-                <h4 className="text-2xl font-black text-slate-900 mt-2">{item.count} <span className="text-xs font-normal text-slate-400">Unit</span></h4>
-                <p className="text-[11px] text-slate-500 mt-1 leading-snug line-clamp-2" title={item.desc}>
-                  {item.desc}
-                </p>
-              </div>
-            );
-          })}
-        </div>
-      </div>
     </div>
   );
 }
