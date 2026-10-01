@@ -340,37 +340,49 @@ export default function Statistik() {
         </form>
       </div>
 
-      {/* Top 4 Quick Summary Badges */}
+      {/* Top 6 Quick Summary Badges (Real Dynamic from Active Data) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <div className="bg-blue-900 text-white p-3.5 rounded-2xl shadow-md">
           <span className="text-[10px] font-bold uppercase tracking-wider text-blue-200 block">Unit Entry</span>
-          <div className="text-2xl font-black mt-0.5">1,493</div>
+          <div className="text-2xl font-black mt-0.5">
+            {(branchMatrixRows.find(r => r.id === 'unit_entry')?.values?.bjm_all || 0).toLocaleString()}
+          </div>
           <span className="text-[10px] text-blue-200">Total unit masuk</span>
         </div>
         <div className="bg-indigo-900 text-white p-3.5 rounded-2xl shadow-md">
           <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-200 block">Follow Up</span>
-          <div className="text-2xl font-black mt-0.5">1,465</div>
+          <div className="text-2xl font-black mt-0.5">
+            {(branchMatrixRows.find(r => r.id === 'unit_follow_up')?.values?.bjm_all || 0).toLocaleString()}
+          </div>
           <span className="text-[10px] text-indigo-200">Unit di-follow up</span>
         </div>
         <div className="bg-emerald-900 text-white p-3.5 rounded-2xl shadow-md">
           <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-200 block">Sudah di CALL</span>
-          <div className="text-2xl font-black mt-0.5">1,443</div>
-          <span className="text-[10px] text-emerald-200">98.5% jangkauan</span>
+          <div className="text-2xl font-black mt-0.5">
+            {(branchMatrixRows.find(r => r.id === 'unit_sudah_call')?.values?.bjm_all || 0).toLocaleString()}
+          </div>
+          <span className="text-[10px] text-emerald-200">Unit terhubung</span>
         </div>
         <div className="bg-teal-900 text-white p-3.5 rounded-2xl shadow-md">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-teal-200 block">FIR Rate Total</span>
-          <div className="text-2xl font-black mt-0.5">1,247</div>
-          <span className="text-[10px] text-teal-200">Fix It Right tercapai</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-teal-200 block">FIR Total</span>
+          <div className="text-2xl font-black mt-0.5">
+            {(branchMatrixRows.find(r => r.id === 'fir')?.values?.bjm_all || 0).toLocaleString()}
+          </div>
+          <span className="text-[10px] text-teal-200">Fix It Right (Puas)</span>
         </div>
         <div className="bg-rose-950 text-white p-3.5 rounded-2xl shadow-md">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-rose-300 block">NON-FIR</span>
-          <div className="text-2xl font-black mt-0.5 text-rose-400">5</div>
-          <span className="text-[10px] text-rose-300">Q1: 4 | Q3: 1</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-rose-300 block">NON-FIR Total</span>
+          <div className="text-2xl font-black mt-0.5 text-rose-400">
+            {['non_fir_q1', 'non_fir_q2', 'non_fir_q3', 'non_fir_q4', 'non_fir_q5', 'non_fir_q6'].reduce((acc, k) => acc + (branchMatrixRows.find(r => r.id === k)?.values?.bjm_all || 0), 0)}
+          </div>
+          <span className="text-[10px] text-rose-300">Ada keluhan</span>
         </div>
         <div className="bg-amber-950 text-white p-3.5 rounded-2xl shadow-md">
           <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 block">Tidak Terhubung</span>
-          <div className="text-2xl font-black mt-0.5 text-amber-400">184</div>
-          <span className="text-[10px] text-amber-300">TD: 171 | TA: 10</span>
+          <div className="text-2xl font-black mt-0.5 text-amber-400">
+            {(branchMatrixRows.find(r => r.id === 'td')?.values?.bjm_all || 0) + (branchMatrixRows.find(r => r.id === 'ta')?.values?.bjm_all || 0) + (branchMatrixRows.find(r => r.id === 'tv')?.values?.bjm_all || 0)}
+          </div>
+          <span className="text-[10px] text-amber-300">TD, TA, TV</span>
         </div>
       </div>
 
@@ -411,7 +423,6 @@ export default function Statistik() {
                 // Background classes
                 let labelBg = 'bg-white';
                 let cellBg = 'bg-white';
-                let textClass = 'text-slate-900';
 
                 if (isBluePrimary) {
                   labelBg = 'bg-blue-500 text-white font-black';
@@ -450,7 +461,7 @@ export default function Statistik() {
                           key={col.key}
                           className={`px-3 py-2 border-r border-slate-400 ${cellBg} ${
                             col.isTotal ? 'font-black text-slate-950' : ''
-                          } ${isHighlighted ? 'text-slate-950' : ''}`}
+                          } ${isHighlighted ? 'text-slate-950 font-bold' : ''}`}
                         >
                           {val}
                         </td>
@@ -468,7 +479,7 @@ export default function Statistik() {
       {/* VISUAL ANALYTICS & BAR CHART */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* Branch Performance Comparison Bar Chart */}
+        {/* Branch Performance Comparison Bar Chart (Real Dynamic) */}
         <div className="lg:col-span-8 bg-white rounded-3xl p-6 border border-slate-200/80 shadow-card flex flex-col justify-between">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -477,7 +488,7 @@ export default function Statistik() {
                 <h3 className="text-sm font-bold text-slate-900">Performa Follow-Up & FIR Per Bengkel / SP</h3>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Perbandingan Unit Entry, Unit Follow-Up, dan Hasil Pelanggan Puas (FIR)
+                Perbandingan Real Unit Entry, Unit Follow-Up, dan Hasil Pelanggan Puas (FIR)
               </p>
             </div>
             <span className="text-xs font-bold bg-slate-100 px-3 py-1 rounded-full text-slate-700">
@@ -487,9 +498,22 @@ export default function Statistik() {
 
           <div className="h-72 my-2">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={branchComparisonChartData} margin={{ top: 20, right: 20, left: -10, bottom: 20 }}>
+              <BarChart
+                data={branchColumns.filter(c => !c.isTotal).map(col => {
+                  const ue = branchMatrixRows.find(r => r.id === 'unit_entry')?.values[col.key] || 0;
+                  const fu = branchMatrixRows.find(r => r.id === 'unit_follow_up')?.values[col.key] || 0;
+                  const fir = branchMatrixRows.find(r => r.id === 'fir')?.values[col.key] || 0;
+                  return {
+                    name: col.label,
+                    UnitEntry: ue,
+                    FollowUp: fu,
+                    FIR: fir
+                  };
+                })}
+                margin={{ top: 20, right: 20, left: -10, bottom: 20 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#475569', fontWeight: 600 }} />
+                <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#475569', fontWeight: 600 }} />
                 <YAxis tick={{ fontSize: 11, fill: '#64748b' }} />
                 <Tooltip
                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: '12px' }}
@@ -503,7 +527,7 @@ export default function Statistik() {
           </div>
         </div>
 
-        {/* Reason Distribution Donut */}
+        {/* Reason Distribution Donut (Real Dynamic) */}
         <div className="lg:col-span-4 bg-white rounded-3xl p-6 border border-slate-200/80 shadow-card flex flex-col justify-between">
           <div>
             <div className="flex items-center space-x-2">
@@ -511,63 +535,72 @@ export default function Statistik() {
               <h3 className="text-sm font-bold text-slate-900">Distribusi Alasan Tidak Terhubung</h3>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              184 Unit gagal dikonfirmasi saat follow-up
+              Rincian unit yang belum/tidak berhasil dihubungi saat follow-up
             </p>
           </div>
 
-          <div className="my-4 flex flex-col items-center justify-center">
-            <div className="h-44 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={[
-                      { name: 'Tidak Diangkat (TD)', value: 171, color: '#F59E0B' },
-                      { name: 'No Tidak Aktif (TA)', value: 10, color: '#EF4444' },
-                      { name: 'Tidak Valid (TV)', value: 3, color: '#8B5CF6' },
-                    ]}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={45}
-                    outerRadius={70}
-                    paddingAngle={3}
-                    dataKey="value"
-                  >
-                    <Cell fill="#F59E0B" />
-                    <Cell fill="#EF4444" />
-                    <Cell fill="#8B5CF6" />
-                  </Pie>
-                  <Tooltip
-                    formatter={(val, name) => [`${val} Unit (${((val/184)*100).toFixed(1)}%)`, name]}
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: '12px' }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+          {(() => {
+            const tdVal = branchMatrixRows.find(r => r.id === 'td')?.values?.bjm_all || 0;
+            const taVal = branchMatrixRows.find(r => r.id === 'ta')?.values?.bjm_all || 0;
+            const tvVal = branchMatrixRows.find(r => r.id === 'tv')?.values?.bjm_all || 0;
+            const totalTidak = tdVal + taVal + tvVal || 1;
 
-            <div className="w-full space-y-2 pt-2 border-t border-slate-100 text-xs font-semibold">
-              <div className="flex items-center justify-between">
-                <span className="flex items-center space-x-1.5 text-slate-600">
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-                  <span>Tidak Diangkat (TD)</span>
-                </span>
-                <span className="font-bold text-slate-900">171 (92.9%)</span>
+            return (
+              <div className="my-4 flex flex-col items-center justify-center">
+                <div className="h-44 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={[
+                          { name: 'Tidak Diangkat (TD)', value: tdVal, color: '#F59E0B' },
+                          { name: 'No Tidak Aktif (TA)', value: taVal, color: '#EF4444' },
+                          { name: 'Tidak Valid (TV)', value: tvVal, color: '#8B5CF6' },
+                        ]}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={45}
+                        outerRadius={70}
+                        paddingAngle={3}
+                        dataKey="value"
+                      >
+                        <Cell fill="#F59E0B" />
+                        <Cell fill="#EF4444" />
+                        <Cell fill="#8B5CF6" />
+                      </Pie>
+                      <Tooltip
+                        formatter={(val, name) => [`${val} Unit (${((val/totalTidak)*100).toFixed(1)}%)`, name]}
+                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: '12px' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="w-full space-y-2 pt-2 border-t border-slate-100 text-xs font-semibold">
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center space-x-1.5 text-slate-600">
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                      <span>Tidak Diangkat (TD)</span>
+                    </span>
+                    <span className="font-bold text-slate-900">{tdVal} ({((tdVal/totalTidak)*100).toFixed(1)}%)</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center space-x-1.5 text-slate-600">
+                      <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+                      <span>No Tidak Aktif (TA)</span>
+                    </span>
+                    <span className="font-bold text-slate-900">{taVal} ({((taVal/totalTidak)*100).toFixed(1)}%)</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center space-x-1.5 text-slate-600">
+                      <span className="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
+                      <span>Tidak Valid (TV)</span>
+                    </span>
+                    <span className="font-bold text-slate-900">{tvVal} ({((tvVal/totalTidak)*100).toFixed(1)}%)</span>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="flex items-center space-x-1.5 text-slate-600">
-                  <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span>
-                  <span>No Tidak Aktif (TA)</span>
-                </span>
-                <span className="font-bold text-slate-900">10 (5.4%)</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="flex items-center space-x-1.5 text-slate-600">
-                  <span className="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
-                  <span>Tidak Valid (TV)</span>
-                </span>
-                <span className="font-bold text-slate-900">3 (1.6%)</span>
-              </div>
-            </div>
-          </div>
+            );
+          })()}
         </div>
 
       </div>

@@ -1246,65 +1246,158 @@ export const db = {
       Q6: { count: records.filter(r => r.kategori_q === 'Q6').length, desc: 'Special Campaign / Booking Follow-up' }
     };
 
-    // Baseline stats matching official Toyota Banjarmasin report (Gambar 1 & Gambar 2)
-    const baselineDashboard = {
+    // Helper to identify branch
+    const getBranch = (r) => {
+      const saUpper = String(r.sa || '').toUpperCase();
+      const srvUpper = String(r.service || '').toUpperCase();
+      const ketUpper = String(r.keterangan || '').toUpperCase();
+      const comb = `${saUpper} ${srvUpper} ${ketUpper}`;
+
+      if (comb.includes('KM2') || comb.includes('KM 2') || comb.includes('KM.2')) return 'SP';
+      if (comb.includes('PLH') || comb.includes('PELAIHARI')) return 'SP';
+      if (comb.includes('BATUBARA') || comb.includes('BTL') || comb.includes('BATULICIN')) return 'SP';
+      if (comb.includes('KTB') || comb.includes('KOTABARU')) return 'SP';
+      if (comb.includes('MRB') || comb.includes('MARABAHAN')) return 'SP';
+      if (comb.includes('BKT')) return 'BKT';
+      return 'BJM';
+    };
+
+    // Calculate real dynamic group numbers (BJM, SP, BKT, TOTAL)
+    const bjmRecords = records.filter(r => getBranch(r) === 'BJM');
+    const spRecords = records.filter(r => getBranch(r) === 'SP');
+    const bktRecords = records.filter(r => getBranch(r) === 'BKT');
+
+    const computeGroupStats = (groupList) => {
+      const gTotal = groupList.length;
+      const gFU = gTotal; // All entries in list are scheduled/followed up
+      const gCompleted = groupList.filter(r => r.status_rtj === 'Completed').length;
+      const gRescheduled = groupList.filter(r => r.status_rtj === 'Rescheduled').length;
+      const gPending = groupList.filter(r => r.status_rtj === 'Pending').length;
+      const gScheduled = groupList.filter(r => r.status_rtj === 'Scheduled').length;
+
+      // Contacted (Terhubung) = Completed + Rescheduled
+      const gTerhubung = gCompleted + gRescheduled;
+      // Tidak terhubung = Pending
+      const gTidakTerhubung = gPending;
+      // FIR (Puas) = Completed
+      const gFIR = gCompleted;
+
+      // Non-FIR Q1-Q6
+      const qNeg = {
+        Q1: groupList.filter(r => r.kategori_q === 'Q1' && (r.status_rtj === 'Rescheduled' || r.status_rtj === 'Pending')).length,
+        Q2: groupList.filter(r => r.kategori_q === 'Q2' && (r.status_rtj === 'Rescheduled' || r.status_rtj === 'Pending')).length,
+        Q3: groupList.filter(r => r.kategori_q === 'Q3' && (r.status_rtj === 'Rescheduled' || r.status_rtj === 'Pending')).length,
+        Q4: groupList.filter(r => r.kategori_q === 'Q4' && (r.status_rtj === 'Rescheduled' || r.status_rtj === 'Pending')).length,
+        Q5: groupList.filter(r => r.kategori_q === 'Q5' && (r.status_rtj === 'Rescheduled' || r.status_rtj === 'Pending')).length,
+        Q6: groupList.filter(r => r.kategori_q === 'Q6' && (r.status_rtj === 'Rescheduled' || r.status_rtj === 'Pending')).length,
+      };
+
+      const firRate = gTerhubung > 0 ? ((gFIR / gTerhubung) * 100).toFixed(0) + '%' : '100%';
+      const scrRate = gFU > 0 ? ((gTerhubung / gFU) * 100).toFixed(0) + '%' : '100%';
+
+      return {
+        unitEntry: gTotal,
+        unitFU: gFU,
+        terhubung: gTerhubung,
+        fir: gFIR,
+        qNeg,
+        tidakTerhubung: gTidakTerhubung,
+        firRate,
+        scrRate
+      };
+    };
+
+    const bjmStat = computeGroupStats(bjmRecords);
+    const spStat = computeGroupStats(spRecords);
+    const bktStat = computeGroupStats(bktRecords);
+    const totalStat = computeGroupStats(records);
+
+    // Reasons breakdown for Total Tidak Terhubung
+    const pendingList = records.filter(r => r.status_rtj === 'Pending' || r.status_rtj === 'Scheduled');
+    const tdCount = pendingList.filter(r => {
+      const s = `${r.detail_kendala || ''} ${r.keterangan || ''}`.toLowerCase();
+      return s.includes('tidak diangkat') || s.includes('td') || s.includes('sibuk') || (!s.includes('aktif') && !s.includes('valid'));
+    }).length;
+    const tvCount = pendingList.filter(r => `${r.detail_kendala || ''} ${r.keterangan || ''}`.toLowerCase().includes('valid')).length;
+    const tnCount = pendingList.filter(r => `${r.detail_kendala || ''} ${r.keterangan || ''}`.toLowerCase().includes('nada')).length;
+    const tCount = pendingList.filter(r => `${r.detail_kendala || ''} ${r.keterangan || ''}`.toLowerCase().includes('terpasang')).length;
+    const ssCount = pendingList.filter(r => `${r.detail_kendala || ''} ${r.keterangan || ''}`.toLowerCase().includes('salah sambung')).length;
+    const taCount = pendingList.filter(r => `${r.detail_kendala || ''} ${r.keterangan || ''}`.toLowerCase().includes('tidak aktif') || `${r.detail_kendala || ''} ${r.keterangan || ''}`.toLowerCase().includes('ta')).length;
+
+    // Real dynamic Dashboard Object
+    const dynamicDashboard = {
       target: {
         firRate: '98%',
         successCallRate: '100%'
       },
       aktual: {
-        firRate: '100%',
-        successCallRate: '85%'
+        firRate: totalStat.firRate || '100%',
+        successCallRate: totalStat.scrRate || '100%'
       },
       overview: {
-        periodTitle: 'JULI 2025',
-        unitEntryTotal: 1493,
-        dataTidakTerFollowUp: '#REF!',
-        tidakTerkumpul: '#REF!',
-        twc: '#REF!',
-        wip: '#REF!',
-        others: '#REF!',
-        totalUnitFollowUp: 1465,
-        totalTerhubung: 1252,
-        totalTidakTerhubung: 184,
-        fir: 1247,
-        nonFir: 5,
+        periodTitle: periode_mulai ? `${periode_mulai} s/d ${periode_selesai || 'Kini'}` : 'SEMUA DATA AKTIF',
+        unitEntryTotal: totalStat.unitEntry,
+        dataTidakTerFollowUp: scheduled,
+        tidakTerkumpul: 0,
+        twc: 0,
+        wip: scheduled,
+        others: 0,
+        totalUnitFollowUp: totalStat.unitFU,
+        totalTerhubung: totalStat.terhubung,
+        totalTidakTerhubung: totalStat.tidakTerhubung,
+        fir: totalStat.fir,
+        nonFir: totalStat.qNeg.Q1 + totalStat.qNeg.Q2 + totalStat.qNeg.Q3 + totalStat.qNeg.Q4 + totalStat.qNeg.Q5 + totalStat.qNeg.Q6,
         nonFirBreakdown: {
-          Q1: 4,
-          Q2: 0,
-          Q3: 1,
-          Q4: 0,
-          Q5: 0,
-          Q6: 0
+          Q1: totalStat.qNeg.Q1,
+          Q2: totalStat.qNeg.Q2,
+          Q3: totalStat.qNeg.Q3,
+          Q4: totalStat.qNeg.Q4,
+          Q5: totalStat.qNeg.Q5,
+          Q6: totalStat.qNeg.Q6
         },
         tidakTerhubungBreakdown: {
-          tidakDiangkat: 171,
-          tidakValid: 3,
-          tidakAdaNada: 0,
-          noTidakTerpasang: 0,
-          noSalahSambung: 0,
-          noTidakAktif: 10
+          tidakDiangkat: tdCount,
+          tidakValid: tvCount,
+          tidakAdaNada: tnCount,
+          noTidakTerpasang: tCount,
+          noSalahSambung: ssCount,
+          noTidakAktif: taCount
         }
       },
       scrComposition: [
-        { name: 'BANJARMASIN', firRate: '100%', komposisiScr: '45%', komposisiNoScr: '13%' },
-        { name: 'SERVICE POINT', firRate: '100%', komposisiScr: '37%', komposisiNoScr: '8%' },
-        { name: 'BKT 1, 2 & 3', firRate: '100%', komposisiScr: '3%', komposisiNoScr: '2%' }
+        {
+          name: 'BANJARMASIN',
+          firRate: bjmStat.firRate,
+          komposisiScr: totalStat.unitEntry > 0 ? ((bjmStat.terhubung / totalStat.unitEntry) * 100).toFixed(0) + '%' : '0%',
+          komposisiNoScr: totalStat.unitEntry > 0 ? ((bjmStat.tidakTerhubung / totalStat.unitEntry) * 100).toFixed(0) + '%' : '0%'
+        },
+        {
+          name: 'SERVICE POINT',
+          firRate: spStat.firRate,
+          komposisiScr: totalStat.unitEntry > 0 ? ((spStat.terhubung / totalStat.unitEntry) * 100).toFixed(0) + '%' : '0%',
+          komposisiNoScr: totalStat.unitEntry > 0 ? ((spStat.tidakTerhubung / totalStat.unitEntry) * 100).toFixed(0) + '%' : '0%'
+        },
+        {
+          name: 'BKT 1, 2 & 3',
+          firRate: bktStat.firRate,
+          komposisiScr: totalStat.unitEntry > 0 ? ((bktStat.terhubung / totalStat.unitEntry) * 100).toFixed(0) + '%' : '0%',
+          komposisiNoScr: totalStat.unitEntry > 0 ? ((bktStat.tidakTerhubung / totalStat.unitEntry) * 100).toFixed(0) + '%' : '0%'
+        }
       ],
       kpiTable: [
-        { kpi: 'Total Unit Entry', bjm: 809, sp: 637, bkt: 47, total: 1493 },
-        { kpi: 'Jumlah Unit Yang Harus di FU', bjm: 783, sp: 635, bkt: 47, total: 1465 },
-        { kpi: 'Jumlah Unit Yang Berhasil di Hubungi', bjm: 666, sp: 540, bkt: 46, total: 1252 },
-        { kpi: 'Jumlah Pelanggan Puas', bjm: 662, sp: 539, bkt: 46, total: 1247 },
-        { kpi: 'Jawaban TIDAK Untuk Q1', bjm: 3, sp: 1, bkt: 0, total: 4, isNegative: true },
-        { kpi: 'Jawaban TIDAK Untuk Q2', bjm: 0, sp: 0, bkt: 0, total: 0, isNegative: true },
-        { kpi: 'Jawaban TIDAK Untuk Q3', bjm: 1, sp: 0, bkt: 0, total: 1, isNegative: true },
-        { kpi: 'Jawaban TIDAK Untuk Q4', bjm: 0, sp: 0, bkt: 0, total: 0, isNegative: true },
-        { kpi: 'Jawaban TIDAK Untuk Q5', bjm: 0, sp: 0, bkt: 0, total: 0, isNegative: true },
-        { kpi: 'Jawaban TIDAK Untuk Q6', bjm: 0, sp: 0, bkt: 0, total: 0, isNegative: true },
-        { kpi: 'TIDAK TERHUBUNG', bjm: 184, sp: 118, bkt: 25, total: 327 },
-        { kpi: 'FIR Rate', bjm: '99%', sp: '100%', bkt: '100%', total: '99.6%', isRate: true },
-        { kpi: 'Success Call Rate', bjm: '85%', sp: '85%', bkt: '100%', total: '85.5%', isRate: true }
+        { kpi: 'Total Unit Entry', bjm: bjmStat.unitEntry, sp: spStat.unitEntry, bkt: bktStat.unitEntry, total: totalStat.unitEntry },
+        { kpi: 'Jumlah Unit Yang Harus di FU', bjm: bjmStat.unitFU, sp: spStat.unitFU, bkt: bktStat.unitFU, total: totalStat.unitFU },
+        { kpi: 'Jumlah Unit Yang Berhasil di Hubungi', bjm: bjmStat.terhubung, sp: spStat.terhubung, bkt: bktStat.terhubung, total: totalStat.terhubung },
+        { kpi: 'Jumlah Pelanggan Puas', bjm: bjmStat.fir, sp: spStat.fir, bkt: bktStat.fir, total: totalStat.fir },
+        { kpi: 'Jawaban TIDAK Untuk Q1', bjm: bjmStat.qNeg.Q1, sp: spStat.qNeg.Q1, bkt: bktStat.qNeg.Q1, total: totalStat.qNeg.Q1, isNegative: true },
+        { kpi: 'Jawaban TIDAK Untuk Q2', bjm: bjmStat.qNeg.Q2, sp: spStat.qNeg.Q2, bkt: bktStat.qNeg.Q2, total: totalStat.qNeg.Q2, isNegative: true },
+        { kpi: 'Jawaban TIDAK Untuk Q3', bjm: bjmStat.qNeg.Q3, sp: spStat.qNeg.Q3, bkt: bktStat.qNeg.Q3, total: totalStat.qNeg.Q3, isNegative: true },
+        { kpi: 'Jawaban TIDAK Untuk Q4', bjm: bjmStat.qNeg.Q4, sp: spStat.qNeg.Q4, bkt: bktStat.qNeg.Q4, total: totalStat.qNeg.Q4, isNegative: true },
+        { kpi: 'Jawaban TIDAK Untuk Q5', bjm: bjmStat.qNeg.Q5, sp: spStat.qNeg.Q5, bkt: bktStat.qNeg.Q5, total: totalStat.qNeg.Q5, isNegative: true },
+        { kpi: 'Jawaban TIDAK Untuk Q6', bjm: bjmStat.qNeg.Q6, sp: spStat.qNeg.Q6, bkt: bktStat.qNeg.Q6, total: totalStat.qNeg.Q6, isNegative: true },
+        { kpi: 'TIDAK TERHUBUNG', bjm: bjmStat.tidakTerhubung, sp: spStat.tidakTerhubung, bkt: bktStat.tidakTerhubung, total: totalStat.tidakTerhubung },
+        { kpi: 'FIR Rate', bjm: bjmStat.firRate, sp: spStat.firRate, bkt: bktStat.firRate, total: totalStat.firRate, isRate: true },
+        { kpi: 'Success Call Rate', bjm: bjmStat.scrRate, sp: spStat.scrRate, bkt: bktStat.scrRate, total: totalStat.scrRate, isRate: true }
       ]
     };
 
@@ -1315,8 +1408,8 @@ export const db = {
       pending: { count: pending, percentage: calcPct(pending) },
       rescheduled: { count: rescheduled, percentage: calcPct(rescheduled) },
       qBreakdown,
-      baselineDashboard,
-      latestRTJ: records.slice(0, 5)
+      baselineDashboard: dynamicDashboard,
+      latestRTJ: records.slice(0, 10)
     };
   },
 
@@ -1360,7 +1453,27 @@ export const db = {
     const allSAs = [...new Set(store.rtj.map(r => r.sa).filter(Boolean))].sort();
     const allFOs = [...new Set(store.rtj.map(r => r.fo).filter(Boolean))].sort();
 
-    // Baseline Branch Matrix Data matching Image 2
+    // Helper to identify specific branch key
+    const getBranchKey = (r) => {
+      const saUpper = String(r.sa || '').toUpperCase();
+      const srvUpper = String(r.service || '').toUpperCase();
+      const ketUpper = String(r.keterangan || '').toUpperCase();
+      const comb = `${saUpper} ${srvUpper} ${ketUpper}`;
+
+      if (comb.includes('KM2') || comb.includes('KM 2') || comb.includes('KM.2')) return 'sp_km2';
+      if (comb.includes('PLH') || comb.includes('PELAIHARI')) return 'sp_plh';
+      if (comb.includes('BATUBARA') || comb.includes('BTL') || comb.includes('BATULICIN')) return 'sp_btl';
+      if (comb.includes('KTB') || comb.includes('KOTABARU')) return 'sp_ktb';
+      if (comb.includes('MRB') || comb.includes('MARABAHAN')) return 'sp_mrb';
+      if (comb.includes('BKT 1') || comb.includes('BKT1')) return 'bkt_1';
+      if (comb.includes('BKT 2') || comb.includes('BKT2')) return 'bkt_2';
+      if (comb.includes('BKT 3') || comb.includes('BKT3')) return 'bkt_3';
+      if (comb.includes('BKT 4') || comb.includes('BKT4')) return 'bkt_4';
+      if (comb.includes('BKT 5') || comb.includes('BKT5')) return 'bkt_5';
+      if (comb.includes('BKT 6') || comb.includes('BKT6')) return 'bkt_6';
+      return 'bjm_saja';
+    };
+
     const branchColumns = [
       { key: 'bjm_all', label: 'BJM ALL', isTotal: true },
       { key: 'bjm_saja', label: 'BJM SAJA' },
@@ -1377,159 +1490,125 @@ export const db = {
       { key: 'bkt_6', label: 'BKT 6' }
     ];
 
-    const branchMatrixRows = [
+    // Compute dynamic row values across all branch columns from real data
+    const computeRow = (filterFn) => {
+      const values = { bjm_all: 0, bjm_saja: 0, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0, bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0 };
+      
+      for (const r of records) {
+        if (filterFn(r)) {
+          const key = getBranchKey(r);
+          values[key] = (values[key] || 0) + 1;
+          values.bjm_all += 1;
+        }
+      }
+      return values;
+    };
+
+    const isPendingOrUnreached = (r) => r.status_rtj === 'Pending' || r.status_rtj === 'Scheduled';
+    const hasText = (r, keyword) => `${r.detail_kendala || ''} ${r.keterangan || ''}`.toLowerCase().includes(keyword);
+
+    const dynamicMatrixRows = [
       {
         id: 'unit_entry',
         label: 'UNIT ENTRY',
         type: 'blue_primary',
-        values: {
-          bjm_all: 1493, bjm_saja: 809, sp_km2: 107, sp_plh: 109, sp_btl: 290, sp_ktb: 92, sp_mrb: 39,
-          bkt_1: 0, bkt_2: 1, bkt_3: 46, bkt_4: 0, bkt_5: 0, bkt_6: 0
-        }
+        values: computeRow(() => true)
       },
       {
         id: 'unit_follow_up',
         label: 'Unit Follow Up',
         type: 'soft_blue',
-        values: {
-          bjm_all: 1465, bjm_saja: 783, sp_km2: 106, sp_plh: 109, sp_btl: 289, sp_ktb: 92, sp_mrb: 39,
-          bkt_1: 0, bkt_2: 1, bkt_3: 46, bkt_4: 0, bkt_5: 0, bkt_6: 0
-        }
+        values: computeRow(() => true)
       },
       {
         id: 'unit_sudah_call',
         label: 'Unit sudah di CALL',
         type: 'soft_blue',
-        values: {
-          bjm_all: 1443, bjm_saja: 772, sp_km2: 102, sp_plh: 106, sp_btl: 286, sp_ktb: 91, sp_mrb: 39,
-          bkt_1: 0, bkt_2: 1, bkt_3: 46, bkt_4: 0, bkt_5: 0, bkt_6: 0
-        }
+        values: computeRow(r => r.status_rtj === 'Completed' || r.status_rtj === 'Pending' || r.status_rtj === 'Rescheduled')
       },
       {
         id: 'unit_belum_call',
         label: 'Unit belum di CALL',
         type: 'soft_red',
-        values: {
-          bjm_all: 22, bjm_saja: 11, sp_km2: 4, sp_plh: 3, sp_btl: 3, sp_ktb: 1, sp_mrb: 0,
-          bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0
-        }
+        values: computeRow(r => r.status_rtj === 'Scheduled')
       },
       {
         id: 'fir',
         label: 'FIR',
         type: 'neutral',
-        values: {
-          bjm_all: 1247, bjm_saja: 662, sp_km2: 84, sp_plh: 95, sp_btl: 245, sp_ktb: 78, sp_mrb: 37,
-          bkt_1: 0, bkt_2: 1, bkt_3: 45, bkt_4: 0, bkt_5: 0, bkt_6: 0
-        }
+        values: computeRow(r => r.status_rtj === 'Completed')
       },
       {
         id: 'non_fir_q1',
         label: 'NON-FIR ( Q1 )',
         type: 'red_danger',
-        values: {
-          bjm_all: 4, bjm_saja: 3, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 1, sp_mrb: 0,
-          bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0
-        }
+        values: computeRow(r => r.kategori_q === 'Q1' && (r.status_rtj === 'Rescheduled' || r.status_rtj === 'Pending'))
       },
       {
         id: 'non_fir_q2',
         label: 'NON-FIR ( Q2 )',
         type: 'red_danger',
-        values: {
-          bjm_all: 0, bjm_saja: 0, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0,
-          bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0
-        }
+        values: computeRow(r => r.kategori_q === 'Q2' && (r.status_rtj === 'Rescheduled' || r.status_rtj === 'Pending'))
       },
       {
         id: 'non_fir_q3',
         label: 'NON-FIR ( Q3 )',
         type: 'red_danger',
-        values: {
-          bjm_all: 1, bjm_saja: 1, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0,
-          bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0
-        }
+        values: computeRow(r => r.kategori_q === 'Q3' && (r.status_rtj === 'Rescheduled' || r.status_rtj === 'Pending'))
       },
       {
         id: 'non_fir_q4',
         label: 'NON-FIR ( Q4 )',
         type: 'red_danger',
-        values: {
-          bjm_all: 0, bjm_saja: 0, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0,
-          bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0
-        }
+        values: computeRow(r => r.kategori_q === 'Q4' && (r.status_rtj === 'Rescheduled' || r.status_rtj === 'Pending'))
       },
       {
         id: 'non_fir_q5',
         label: 'NON-FIR ( Q5 )',
         type: 'red_danger',
-        values: {
-          bjm_all: 0, bjm_saja: 0, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0,
-          bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0
-        }
+        values: computeRow(r => r.kategori_q === 'Q5' && (r.status_rtj === 'Rescheduled' || r.status_rtj === 'Pending'))
       },
       {
         id: 'non_fir_q6',
         label: 'NON-FIR ( Q6 )',
         type: 'red_danger',
-        values: {
-          bjm_all: 0, bjm_saja: 0, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0,
-          bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0
-        }
+        values: computeRow(r => r.kategori_q === 'Q6' && (r.status_rtj === 'Rescheduled' || r.status_rtj === 'Pending'))
       },
       {
         id: 'td',
         label: 'Tidak diangkat(TD)',
         type: 'yellow_warning',
-        values: {
-          bjm_all: 171, bjm_saja: 89, sp_km2: 20, sp_plh: 8, sp_btl: 41, sp_ktb: 10, sp_mrb: 2,
-          bkt_1: 0, bkt_2: 0, bkt_3: 1, bkt_4: 0, bkt_5: 0, bkt_6: 0
-        }
+        values: computeRow(r => isPendingOrUnreached(r) && (hasText(r, 'tidak diangkat') || hasText(r, 'td') || hasText(r, 'sibuk') || (!hasText(r, 'aktif') && !hasText(r, 'valid'))))
       },
       {
         id: 'tv',
         label: 'Tidak valid(TV)',
         type: 'yellow_warning',
-        values: {
-          bjm_all: 3, bjm_saja: 2, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 1, sp_mrb: 0,
-          bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0
-        }
+        values: computeRow(r => isPendingOrUnreached(r) && hasText(r, 'valid'))
       },
       {
         id: 'tn',
         label: 'Tidak ada nada(TN)',
         type: 'yellow_warning',
-        values: {
-          bjm_all: 0, bjm_saja: 0, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0,
-          bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0
-        }
+        values: computeRow(r => isPendingOrUnreached(r) && hasText(r, 'nada'))
       },
       {
         id: 't',
         label: 'No tidak terpasang(T)',
         type: 'yellow_warning',
-        values: {
-          bjm_all: 0, bjm_saja: 0, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0,
-          bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0
-        }
+        values: computeRow(r => isPendingOrUnreached(r) && hasText(r, 'terpasang'))
       },
       {
         id: 'ss',
         label: 'No salah sambung(SS)',
         type: 'yellow_warning',
-        values: {
-          bjm_all: 0, bjm_saja: 0, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0,
-          bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0
-        }
+        values: computeRow(r => isPendingOrUnreached(r) && hasText(r, 'salah sambung'))
       },
       {
         id: 'ta',
         label: 'No tidak aktif(TA)',
         type: 'yellow_warning',
-        values: {
-          bjm_all: 10, bjm_saja: 4, sp_km2: 0, sp_plh: 4, sp_btl: 0, sp_ktb: 2, sp_mrb: 0,
-          bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0
-        }
+        values: computeRow(r => isPendingOrUnreached(r) && (hasText(r, 'tidak aktif') || hasText(r, 'ta')))
       }
     ];
 
@@ -1537,7 +1616,7 @@ export const db = {
       donutData,
       saData,
       branchColumns,
-      branchMatrixRows,
+      branchMatrixRows: dynamicMatrixRows,
       filterOptions: {
         saList: allSAs,
         foList: allFOs,
