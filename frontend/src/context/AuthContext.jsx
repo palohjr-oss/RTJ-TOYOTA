@@ -1,45 +1,55 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api from '../api/client';
 
 const AuthContext = createContext(null);
 
-export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => {
-    try {
-      const saved = localStorage.getItem('rtj_user');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
-  const [loading, setLoading] = useState(() => {
-    return !localStorage.getItem('rtj_token');
-  });
+// Helper to safely parse user from localStorage
+const getSavedUser = () => {
+  try {
+    const saved = localStorage.getItem('rtj_user');
+    return saved ? JSON.parse(saved) : null;
+  } catch {
+    return null;
+  }
+};
 
+export const AuthProvider = ({ children }) => {
+  // Instantly load user from localStorage - NO waiting for API
+  const [user, setUser] = useState(getSavedUser);
+  // loading=false immediately if we have cached user data, so UI is instant
+  const [loading, setLoading] = useState(false);
+
+  // Background verify: silently refresh user data without blocking UI
   useEffect(() => {
-    const verifyUser = async () => {
-      const token = localStorage.getItem('rtj_token');
-      if (token) {
-        try {
-          const res = await api.get('/auth/me');
-          if (res.data.success && res.data.data?.user) {
-            setUser(res.data.data.user);
-            localStorage.setItem('rtj_user', JSON.stringify(res.data.data.user));
-          }
-        } catch (err) {
-          console.warn('Session verify failed, clearing session:', err);
+    const token = localStorage.getItem('rtj_token');
+    if (!token) return;
+
+    // Non-blocking background verification
+    const verifyInBackground = async () => {
+      try {
+        const res = await api.get('/auth/me');
+        if (res.data.success && res.data.data?.user) {
+          const freshUser = res.data.data.user;
+          setUser(freshUser);
+          localStorage.setItem('rtj_user', JSON.stringify(freshUser));
+        }
+      } catch (err) {
+        // Only clear session if explicitly unauthorized (401)
+        if (err.response?.status === 401) {
           setUser(null);
           localStorage.removeItem('rtj_token');
           localStorage.removeItem('rtj_user');
         }
+        // Other errors (network issues, 5xx) - keep existing session
       }
-      setLoading(false);
     };
 
-    verifyUser();
+    // Delay slightly so the UI renders first
+    const timer = setTimeout(verifyInBackground, 200);
+    return () => clearTimeout(timer);
   }, []);
 
-  const login = async (username, password) => {
+  const login = useCallback(async (username, password) => {
     const res = await api.post('/auth/login', { username, password });
     if (res.data.success) {
       const { user: userData, token } = res.data.data;
@@ -49,20 +59,17 @@ export const AuthProvider = ({ children }) => {
       return userData;
     }
     throw new Error(res.data.message || 'Login gagal');
-  };
+  }, []);
 
-  const logout = async () => {
-    try {
-      await api.post('/auth/logout');
-    } catch (e) {
-      // ignore
-    } finally {
-      localStorage.removeItem('rtj_token');
-      localStorage.removeItem('rtj_user');
-      setUser(null);
-      window.location.href = '/login';
-    }
-  };
+  const logout = useCallback(() => {
+    // Instant logout - no API call wait
+    localStorage.removeItem('rtj_token');
+    localStorage.removeItem('rtj_user');
+    setUser(null);
+    // Fire and forget logout API (don't await)
+    api.post('/auth/logout').catch(() => {});
+    window.location.href = '/login';
+  }, []);
 
   const isAdmin = user?.role === 'Admin';
   const isSA = user?.role === 'SA';

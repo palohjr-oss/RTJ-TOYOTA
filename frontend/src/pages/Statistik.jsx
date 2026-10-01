@@ -48,7 +48,16 @@ export default function Statistik() {
     periode_selesai: ''
   });
 
-  // Fetch chart & matrix data
+  // Fetch chart & matrix data - gunakan queryKey yang sama dengan Dashboard agar memanfaatkan cache
+  const { data: chartOptionsData } = useQuery({
+    queryKey: ['dashboard-chart-options'],
+    queryFn: async () => {
+      const res = await api.get('/dashboard/chart');
+      return res.data.data;
+    },
+    placeholderData: (previousData) => previousData,
+  });
+
   const { data: chartData, isLoading } = useQuery({
     queryKey: ['dashboard-chart-analytics', appliedFilters],
     queryFn: async () => {
@@ -59,10 +68,31 @@ export default function Statistik() {
 
       const res = await api.get('/dashboard/chart', { params });
       return res.data.data;
-    }
+    },
+    placeholderData: (previousData) => previousData,
   });
 
-  const availableMonths = chartData?.filterOptions?.availableMonths || [];
+  const availableMonths = chartOptionsData?.filterOptions?.availableMonths || chartData?.filterOptions?.availableMonths || [];
+  const saList = chartOptionsData?.filterOptions?.saList || chartData?.filterOptions?.saList || [];
+
+  // Auto-select bulan terbaru saat pertama load
+  React.useEffect(() => {
+    if (availableMonths.length > 0 && selectedPeriod === 'ALL') {
+      const latest = availableMonths[0];
+      if (latest) {
+        setSelectedPeriod(latest.key);
+        setPeriodeMulai(latest.startDate);
+        setPeriodeSelesai(latest.endDate);
+        setAppliedFilters(prev => ({
+          ...prev,
+          periode_mulai: latest.startDate,
+          periode_selesai: latest.endDate
+        }));
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chartOptionsData]);
+
 
   const handleMonthChange = (monthKey) => {
     setSelectedPeriod(monthKey);
@@ -138,112 +168,8 @@ export default function Statistik() {
     { key: 'bkt_6', label: 'BKT 6' }
   ];
 
-  const branchMatrixRows = chartData?.branchMatrixRows || [
-    {
-      id: 'unit_entry',
-      label: 'UNIT ENTRY',
-      type: 'blue_primary',
-      values: { bjm_all: 1493, bjm_saja: 809, sp_km2: 107, sp_plh: 109, sp_btl: 290, sp_ktb: 92, sp_mrb: 39, bkt_1: 0, bkt_2: 1, bkt_3: 46, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
-    },
-    {
-      id: 'unit_follow_up',
-      label: 'Unit Follow Up',
-      type: 'soft_blue',
-      values: { bjm_all: 1465, bjm_saja: 783, sp_km2: 106, sp_plh: 109, sp_btl: 289, sp_ktb: 92, sp_mrb: 39, bkt_1: 0, bkt_2: 1, bkt_3: 46, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
-    },
-    {
-      id: 'unit_sudah_call',
-      label: 'Unit sudah di CALL',
-      type: 'soft_blue',
-      values: { bjm_all: 1443, bjm_saja: 772, sp_km2: 102, sp_plh: 106, sp_btl: 286, sp_ktb: 91, sp_mrb: 39, bkt_1: 0, bkt_2: 1, bkt_3: 46, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
-    },
-    {
-      id: 'unit_belum_call',
-      label: 'Unit belum di CALL',
-      type: 'soft_red',
-      values: { bjm_all: 22, bjm_saja: 11, sp_km2: 4, sp_plh: 3, sp_btl: 3, sp_ktb: 1, sp_mrb: 0, bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
-    },
-    {
-      id: 'fir',
-      label: 'FIR',
-      type: 'neutral',
-      values: { bjm_all: 1247, bjm_saja: 662, sp_km2: 84, sp_plh: 95, sp_btl: 245, sp_ktb: 78, sp_mrb: 37, bkt_1: 0, bkt_2: 1, bkt_3: 45, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
-    },
-    {
-      id: 'non_fir_q1',
-      label: 'NON-FIR ( Q1 )',
-      type: 'red_danger',
-      values: { bjm_all: 4, bjm_saja: 3, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 1, sp_mrb: 0, bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
-    },
-    {
-      id: 'non_fir_q2',
-      label: 'NON-FIR ( Q2 )',
-      type: 'red_danger',
-      values: { bjm_all: 0, bjm_saja: 0, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0, bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
-    },
-    {
-      id: 'non_fir_q3',
-      label: 'NON-FIR ( Q3 )',
-      type: 'red_danger',
-      values: { bjm_all: 1, bjm_saja: 1, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0, bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
-    },
-    {
-      id: 'non_fir_q4',
-      label: 'NON-FIR ( Q4 )',
-      type: 'red_danger',
-      values: { bjm_all: 0, bjm_saja: 0, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0, bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
-    },
-    {
-      id: 'non_fir_q5',
-      label: 'NON-FIR ( Q5 )',
-      type: 'red_danger',
-      values: { bjm_all: 0, bjm_saja: 0, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0, bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
-    },
-    {
-      id: 'non_fir_q6',
-      label: 'NON-FIR ( Q6 )',
-      type: 'red_danger',
-      values: { bjm_all: 0, bjm_saja: 0, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0, bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
-    },
-    {
-      id: 'td',
-      label: 'Tidak diangkat(TD)',
-      type: 'yellow_warning',
-      values: { bjm_all: 171, bjm_saja: 89, sp_km2: 20, sp_plh: 8, sp_btl: 41, sp_ktb: 10, sp_mrb: 2, bkt_1: 0, bkt_2: 0, bkt_3: 1, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
-    },
-    {
-      id: 'tv',
-      label: 'Tidak valid(TV)',
-      type: 'yellow_warning',
-      values: { bjm_all: 3, bjm_saja: 2, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 1, sp_mrb: 0, bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
-    },
-    {
-      id: 'tn',
-      label: 'Tidak ada nada(TN)',
-      type: 'yellow_warning',
-      values: { bjm_all: 0, bjm_saja: 0, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0, bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
-    },
-    {
-      id: 't',
-      label: 'No tidak terpasang(T)',
-      type: 'yellow_warning',
-      values: { bjm_all: 0, bjm_saja: 0, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0, bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
-    },
-    {
-      id: 'ss',
-      label: 'No salah sambung(SS)',
-      type: 'yellow_warning',
-      values: { bjm_all: 0, bjm_saja: 0, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0, bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
-    },
-    {
-      id: 'ta',
-      label: 'No tidak aktif(TA)',
-      type: 'yellow_warning',
-      values: { bjm_all: 10, bjm_saja: 4, sp_km2: 0, sp_plh: 4, sp_btl: 0, sp_ktb: 2, sp_mrb: 0, bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0 }
-    }
-  ];
-
-  const saList = chartData?.filterOptions?.saList || ['SUGIANTO', 'SP BATUBARA', 'RUDI', 'RONY', 'WAYAN', 'FAJAR'];
+  // Data real dari API - kosong jika belum ada data
+  const branchMatrixRows = chartData?.branchMatrixRows || [];
 
   // Export Matrix Table to Excel
   const handleExportExcel = () => {

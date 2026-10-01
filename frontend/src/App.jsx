@@ -16,7 +16,9 @@ const queryClient = new QueryClient({
     queries: {
       refetchOnWindowFocus: false,
       retry: 1,
-      staleTime: 30000,
+      staleTime: 5 * 60 * 1000,   // 5 menit - data tetap segar, tidak refetch terus
+      gcTime: 10 * 60 * 1000,     // 10 menit - cache tetap di memory
+      refetchOnMount: false,       // Tidak refetch saat komponen mount jika data masih segar
     },
   },
 });

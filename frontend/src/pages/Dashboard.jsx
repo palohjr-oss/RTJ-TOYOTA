@@ -56,17 +56,37 @@ export default function Dashboard() {
     queryFn: async () => {
       const res = await api.get('/dashboard/chart');
       return res.data.data;
-    }
+    },
+    placeholderData: (previousData) => previousData,
   });
 
   const filterOptions = chartData?.filterOptions || {
-    saList: ['SUGIANTO', 'SP BATUBARA', 'RUDI', 'RONY', 'WAYAN', 'FAJAR'],
-    foList: ['Sapruddin', 'Joko prasetyo', 'Muhammad', 'Fahrurrazi'],
+    saList: [],
+    foList: [],
     availableMonths: [],
     statusList: ['Scheduled', 'Completed', 'Pending', 'Rescheduled']
   };
 
   const availableMonths = filterOptions.availableMonths || [];
+
+  // Auto-select bulan terbaru dari data real saat pertama kali load
+  React.useEffect(() => {
+    if (availableMonths.length > 0 && selectedPeriod === 'ALL') {
+      // Otomatis pilih bulan terbaru (index 0 karena sudah reverse-sorted)
+      const latest = availableMonths[0];
+      if (latest) {
+        setSelectedPeriod(latest.key);
+        setPeriodeMulai(latest.startDate);
+        setPeriodeSelesai(latest.endDate);
+        setAppliedFilters(prev => ({
+          ...prev,
+          periode_mulai: latest.startDate,
+          periode_selesai: latest.endDate
+        }));
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chartData]);
 
   const handleMonthChange = (monthKey) => {
     setSelectedPeriod(monthKey);
@@ -120,7 +140,7 @@ export default function Dashboard() {
   };
 
   // Fetch summary stats & official sheet baseline
-  const { data: summaryData, isLoading } = useQuery({
+  const { data: summaryData, isLoading, isFetching } = useQuery({
     queryKey: ['dashboard-summary', appliedFilters],
     queryFn: async () => {
       const params = {};
@@ -132,7 +152,9 @@ export default function Dashboard() {
 
       const res = await api.get('/dashboard/summary', { params });
       return res.data.data;
-    }
+    },
+    // Keep previous data visible while fetching new data (no blinking/skeleton)
+    placeholderData: (previousData) => previousData,
   });
 
   const handleRefreshAll = () => {
