@@ -25,16 +25,16 @@ import api from '../api/client';
 import StatusBadge from '../components/common/StatusBadge';
 import CategoryBadge from '../components/common/CategoryBadge';
 import ProcessFlowDiagram from '../components/common/ProcessFlowDiagram';
-import ImportExcelModal from '../components/common/ImportExcelModal';
 import ChangeStatusModal from '../components/common/ChangeStatusModal';
 
 export default function Dashboard() {
   const queryClient = useQueryClient();
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [statusModalRtj, setStatusModalRtj] = useState(null);
+  const [drillDownModal, setDrillDownModal] = useState(null);
 
   // Filter state
   const [selectedPeriod, setSelectedPeriod] = useState('ALL');
+  const [cabang, setCabang] = useState('ALL');
   const [sa, setSa] = useState('ALL');
   const [fo, setFo] = useState('ALL');
   const [status, setStatus] = useState('ALL');
@@ -43,6 +43,7 @@ export default function Dashboard() {
 
   // Applied filters for query
   const [appliedFilters, setAppliedFilters] = useState({
+    cabang: 'ALL',
     sa: 'ALL',
     fo: 'ALL',
     status: 'ALL',
@@ -112,9 +113,18 @@ export default function Dashboard() {
     }
   };
 
+  const handleCabangChange = (val) => {
+    setCabang(val);
+    setAppliedFilters(prev => ({
+      ...prev,
+      cabang: val
+    }));
+  };
+
   const handleApplyFilter = (e) => {
     e?.preventDefault();
     setAppliedFilters({
+      cabang,
       sa,
       fo,
       status,
@@ -124,6 +134,7 @@ export default function Dashboard() {
   };
 
   const handleResetFilter = () => {
+    setCabang('ALL');
     setSa('ALL');
     setFo('ALL');
     setStatus('ALL');
@@ -131,6 +142,7 @@ export default function Dashboard() {
     setPeriodeSelesai('');
     setSelectedPeriod('ALL');
     setAppliedFilters({
+      cabang: 'ALL',
       sa: 'ALL',
       fo: 'ALL',
       status: 'ALL',
@@ -144,6 +156,7 @@ export default function Dashboard() {
     queryKey: ['dashboard-summary', appliedFilters],
     queryFn: async () => {
       const params = {};
+      if (appliedFilters.cabang !== 'ALL') params.cabang = appliedFilters.cabang;
       if (appliedFilters.sa !== 'ALL') params.sa = appliedFilters.sa;
       if (appliedFilters.fo !== 'ALL') params.fo = appliedFilters.fo;
       if (appliedFilters.status !== 'ALL') params.status = appliedFilters.status;
@@ -156,6 +169,17 @@ export default function Dashboard() {
     // Keep previous data visible while fetching new data (no blinking/skeleton)
     placeholderData: (previousData) => previousData,
   });
+
+  const activeRecords = summaryData?.records || [];
+
+  const openDrillDown = (title, filterFn) => {
+    const matched = activeRecords.filter(filterFn);
+    setDrillDownModal({
+      title,
+      count: matched.length,
+      items: matched
+    });
+  };
 
   const handleRefreshAll = () => {
     queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
@@ -215,47 +239,74 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Top Banner with Quick Actions */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 p-6 rounded-3xl text-white shadow-2xl border border-slate-800">
-        <div>
-          <div className="flex items-center space-x-2">
-            <span className="px-2.5 py-0.5 rounded-full bg-toyota-red text-white text-[11px] font-black uppercase tracking-wider shadow-sm">
-              Dashboard RTJ
-            </span>
-            <span className="text-xs text-slate-400 font-medium">Wira Toyota Banjarmasin</span>
+      {/* Top Banner with Quick Actions (Gambar 1 Header) */}
+      <div className="bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 p-6 rounded-3xl text-white shadow-2xl border border-slate-800 space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center space-x-2">
+              <span className="px-3 py-1 rounded-full bg-toyota-red text-white text-[11px] font-black uppercase tracking-wider shadow-sm">
+                ALL GR BJM & SP
+              </span>
+              <span className="text-xs text-slate-400 font-medium">Wira Toyota Banjarmasin</span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-black mt-2 tracking-tight">
+              ALL GR BJM ONLY & SERVICE POINT
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-xl">
+              Hasil dan Monitoring Dari Follow-Up Service Berkala Unit Pelanggan Secara Terstruktur.
+            </p>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-black mt-2 tracking-tight">
-            Monitoring RETURN JOB (RTJ)
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-xl">
-            Hasil dan Monitoring Tindak Lanjut Progres Keluhan Dari Follow-Up Service Berkala Unit Pelanggan Secara Terstruktur.
-          </p>
+
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <Link
+              to="/follow-up"
+              className="flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold border border-slate-700 transition-all shadow-md active:scale-95"
+            >
+              <PhoneCall className="w-4 h-4 text-emerald-400" />
+              <span>Tabel Follow-Up</span>
+            </Link>
+
+            <Link
+              to="/statistik"
+              className="flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold border border-slate-700 transition-all shadow-md active:scale-95"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-blue-400" />
+              <span>Matriks Cabang</span>
+            </Link>
+
+            <Link
+              to="/input-rtj"
+              className="flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-toyota-red hover:bg-toyota-darkRed text-white text-xs font-bold shadow-toyota transition-all active:scale-95"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>Input RTJ Baru</span>
+            </Link>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-          <button
-            onClick={() => setIsImportModalOpen(true)}
-            className="flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold border border-slate-700 transition-all shadow-md active:scale-95"
-          >
-            <UploadCloud className="w-4 h-4 text-emerald-400" />
-            <span>Import Excel</span>
-          </button>
-
-          <Link
-            to="/statistik"
-            className="flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold border border-slate-700 transition-all shadow-md active:scale-95"
-          >
-            <FileSpreadsheet className="w-4 h-4 text-blue-400" />
-            <span>Matriks Cabang</span>
-          </Link>
-
-          <Link
-            to="/input-rtj"
-            className="flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-toyota-red hover:bg-toyota-darkRed text-white text-xs font-bold shadow-toyota transition-all active:scale-95"
-          >
-            <PlusCircle className="w-4 h-4" />
-            <span>Input RTJ Baru</span>
-          </Link>
+        {/* Pemisahan Cabang BJM & Service Point (SP) Tabs */}
+        <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-800/80">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">
+            Filter Cabang:
+          </span>
+          {[
+            { key: 'ALL', label: 'ALL GR BJM & SP' },
+            { key: 'BJM', label: 'BJM ONLY' },
+            { key: 'SP', label: 'SERVICE POINT (SP)' },
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => handleCabangChange(tab.key)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all ${
+                cabang === tab.key
+                  ? 'bg-toyota-red text-white shadow-toyota scale-105'
+                  : 'bg-slate-800/90 text-slate-300 hover:bg-slate-700 border border-slate-700/60'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -427,71 +478,141 @@ export default function Dashboard() {
         {/* LEFT COLUMN: UE ALL SUMMARY & REASON BREAKDOWN */}
         <div className="lg:col-span-4 space-y-4">
           
-          {/* Main Blue Card: UE ALL [Bulan/Periode] & Follow Up Stats */}
+          {/* Main Blue Card: UE ALL [Bulan/Periode] & Follow Up Stats (Gambar 2 Exact Replica + Clickable Drill-Down) */}
           <div className="bg-slate-50 rounded-2xl border-2 border-slate-800 overflow-hidden shadow-card">
             
-            {/* Header: Dynamic UE ALL Periode */}
-            <div className="bg-blue-600 text-white flex items-center justify-between p-3.5 font-black border-b-2 border-slate-800">
-              <span className="text-sm tracking-wide uppercase">UE ALL {currentPeriodLabel}</span>
-              <span className="text-xl bg-slate-900/40 px-3 py-0.5 rounded-lg border border-white/20">
-                {baseline.overview.unitEntryTotal}
-              </span>
+            {/* Header: Dynamic UE ALL Periode + Month Selector (ALL AGUSTUS / PERBULAN) */}
+            <div className="bg-blue-600 text-white flex items-center justify-between p-3 font-black border-b-2 border-slate-800">
+              <div className="flex flex-col">
+                <span className="text-xs sm:text-sm tracking-wide uppercase">
+                  UE ALL {currentPeriodLabel}
+                </span>
+                <span className="text-[10px] text-blue-200 font-normal">
+                  Klik kalimat untuk rincian unit
+                </span>
+              </div>
+              <div className="flex items-center space-x-1.5">
+                <select
+                  value={selectedPeriod}
+                  onChange={(e) => handleMonthChange(e.target.value)}
+                  className="bg-blue-800 hover:bg-blue-900 text-white text-[11px] font-black rounded-lg px-2 py-1 border border-blue-400 focus:outline-none cursor-pointer"
+                  title="Ganti Bulan / PERBULAN"
+                >
+                  <option value="ALL">SEMUA</option>
+                  {availableMonths.map(m => (
+                    <option key={m.key} value={m.key}>{m.label}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => openDrillDown(`Semua Unit Entry (${currentPeriodLabel})`, () => true)}
+                  className="text-lg font-black bg-slate-900/50 hover:bg-slate-900 px-2.5 py-0.5 rounded-lg border border-white/20 transition-all cursor-pointer"
+                  title="Klik untuk melihat seluruh unit"
+                >
+                  {baseline.overview.unitEntryTotal}
+                </button>
+              </div>
             </div>
 
-            {/* Unfollowed breakdown rows */}
+            {/* Unfollowed breakdown rows (Clickable) */}
             <div className="bg-slate-200/90 divide-y divide-slate-300/80 text-xs font-bold">
-              <div className="flex items-center justify-between px-3 py-1.5 text-red-600 bg-red-50/60">
-                <span>Data tidak terFollow Up</span>
+              <div
+                onClick={() => openDrillDown('Data Tidak Ter-Follow Up', r => r.status_rtj === 'Scheduled' && !r.sa)}
+                className="flex items-center justify-between px-3 py-1.5 text-red-600 bg-red-50/60 hover:bg-red-100/90 cursor-pointer transition-all active:scale-[0.99] group"
+                title="Klik untuk rincian data tidak terFollow Up"
+              >
+                <span className="group-hover:underline">Data tidak terFollow Up</span>
                 <span className="font-mono text-red-700 font-extrabold">{baseline.overview.dataTidakTerFollowUp}</span>
               </div>
-              <div className="flex items-center justify-between px-3 py-1.5 text-slate-700">
-                <span>Tidak Terkumpul</span>
+              <div
+                onClick={() => openDrillDown('Tidak Terkumpul', () => false)}
+                className="flex items-center justify-between px-3 py-1.5 text-slate-700 hover:bg-slate-300/80 cursor-pointer transition-all active:scale-[0.99] group"
+                title="Klik untuk rincian tidak terkumpul"
+              >
+                <span className="group-hover:underline">Tidak Terkumpul</span>
                 <span className="font-mono text-emerald-700 font-extrabold">{baseline.overview.tidakTerkumpul}</span>
               </div>
-              <div className="flex items-center justify-between px-3 py-1.5 text-slate-700">
-                <span>TWC</span>
+              <div
+                onClick={() => openDrillDown('TWC', r => String(r.service || '').toLowerCase().includes('twc'))}
+                className="flex items-center justify-between px-3 py-1.5 text-slate-700 hover:bg-slate-300/80 cursor-pointer transition-all active:scale-[0.99] group"
+                title="Klik untuk rincian TWC"
+              >
+                <span className="group-hover:underline">TWC</span>
                 <span className="font-mono text-emerald-700 font-extrabold">{baseline.overview.twc}</span>
               </div>
-              <div className="flex items-center justify-between px-3 py-1.5 text-slate-700">
-                <span>WIP</span>
+              <div
+                onClick={() => openDrillDown('WIP', r => String(r.service || '').toLowerCase().includes('wip'))}
+                className="flex items-center justify-between px-3 py-1.5 text-slate-700 hover:bg-slate-300/80 cursor-pointer transition-all active:scale-[0.99] group"
+                title="Klik untuk rincian WIP"
+              >
+                <span className="group-hover:underline">WIP</span>
                 <span className="font-mono text-emerald-700 font-extrabold">{baseline.overview.wip}</span>
               </div>
-              <div className="flex items-center justify-between px-3 py-1.5 text-slate-700">
-                <span>Others</span>
+              <div
+                onClick={() => openDrillDown('Others', () => false)}
+                className="flex items-center justify-between px-3 py-1.5 text-slate-700 hover:bg-slate-300/80 cursor-pointer transition-all active:scale-[0.99] group"
+                title="Klik untuk rincian Others"
+              >
+                <span className="group-hover:underline">Others</span>
                 <span className="font-mono text-emerald-700 font-extrabold">{baseline.overview.others}</span>
               </div>
             </div>
 
-            {/* Core Metrics Summary */}
+            {/* Core Metrics Summary (Clickable) */}
             <div className="divide-y divide-slate-300 text-xs">
-              <div className="flex items-center justify-between px-3 py-2 bg-blue-100/80 font-bold text-slate-900">
-                <span>Total Unit FollowUp</span>
+              <div
+                onClick={() => openDrillDown('Total Unit Follow Up', () => true)}
+                className="flex items-center justify-between px-3 py-2 bg-blue-100/80 hover:bg-blue-200/90 font-bold text-slate-900 cursor-pointer transition-all active:scale-[0.99] group"
+                title="Klik untuk rincian Total Unit FollowUp"
+              >
+                <span className="group-hover:underline">Total Unit FollowUp</span>
                 <span className="text-sm font-black">{baseline.overview.totalUnitFollowUp}</span>
               </div>
-              <div className="flex items-center justify-between px-3 py-2 bg-blue-100/60 font-bold text-slate-900">
-                <span>Total Terhubung</span>
-                <span className="text-sm font-black">{baseline.overview.totalTerhubung}</span>
+              <div
+                onClick={() => openDrillDown('Total Terhubung (Diangkat)', r => r.status_rtj === 'Completed' || r.status_rtj === 'Rescheduled')}
+                className="flex items-center justify-between px-3 py-2 bg-blue-100/60 hover:bg-blue-200/90 font-bold text-slate-900 cursor-pointer transition-all active:scale-[0.99] group"
+                title="Klik untuk rincian Total Terhubung"
+              >
+                <span className="group-hover:underline">Total Terhubung</span>
+                <span className="text-sm font-black text-emerald-700">{baseline.overview.totalTerhubung}</span>
               </div>
-              <div className="flex items-center justify-between px-3 py-2 bg-blue-100/60 font-bold text-red-600">
-                <span>Tidak Terhubung</span>
+              <div
+                onClick={() => openDrillDown('Tidak Terhubung (Pending / Tunda)', r => r.status_rtj === 'Pending' || r.status_rtj === 'Scheduled')}
+                className="flex items-center justify-between px-3 py-2 bg-blue-100/60 hover:bg-rose-100 font-bold text-red-600 cursor-pointer transition-all active:scale-[0.99] group"
+                title="Klik untuk rincian Tidak Terhubung"
+              >
+                <span className="group-hover:underline">Tidak Terhubung</span>
                 <span className="text-sm font-black text-red-600">{baseline.overview.totalTidakTerhubung}</span>
               </div>
-              <div className="flex items-center justify-between px-3 py-2 bg-blue-100/40 font-bold text-slate-900">
-                <span>FIR</span>
-                <span className="text-sm font-black">{baseline.overview.fir}</span>
+              <div
+                onClick={() => openDrillDown('FIR (Fix It Right / Puas)', r => r.status_rtj === 'Completed')}
+                className="flex items-center justify-between px-3 py-2 bg-blue-100/40 hover:bg-blue-200/90 font-bold text-slate-900 cursor-pointer transition-all active:scale-[0.99] group"
+                title="Klik untuk rincian FIR"
+              >
+                <span className="group-hover:underline">FIR</span>
+                <span className="text-sm font-black text-emerald-700">{baseline.overview.fir}</span>
               </div>
-              <div className="flex items-center justify-between px-3 py-2 bg-blue-100/40 font-bold text-red-600 border-b-2 border-slate-400">
+              <div
+                onClick={() => openDrillDown('Non Fir (Ada Keluhan)', r => r.status_rtj === 'Rescheduled' || r.status_rtj === 'Pending')}
+                className="flex items-center justify-between px-3 py-2 bg-blue-100/40 hover:bg-rose-100 font-bold text-red-600 border-b-2 border-slate-400 cursor-pointer transition-all active:scale-[0.99] group"
+                title="Klik untuk rincian Non Fir"
+              >
                 <span className="underline decoration-red-400 font-black">Non Fir</span>
                 <span className="text-sm font-black text-red-600">{baseline.overview.nonFir}</span>
               </div>
 
-              {/* Q1 - Q6 Breakdown */}
+              {/* Q1 - Q6 Breakdown (Clickable) */}
               <div className="bg-blue-50/70 divide-y divide-slate-200">
                 {['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6'].map((qKey) => {
                   const val = baseline.overview.nonFirBreakdown[qKey] || 0;
                   return (
-                    <div key={qKey} className="flex items-center justify-between px-4 py-1.5 font-bold text-slate-800">
-                      <span className="text-[11px]">{qKey}</span>
+                    <div
+                      key={qKey}
+                      onClick={() => openDrillDown(`Kategori Keluhan ${qKey}`, r => r.kategori_q === qKey)}
+                      className="flex items-center justify-between px-4 py-1.5 font-bold text-slate-800 hover:bg-blue-100/80 cursor-pointer transition-all active:scale-[0.99] group"
+                      title={`Klik untuk rincian ${qKey}`}
+                    >
+                      <span className="text-[11px] group-hover:underline">{qKey}</span>
                       <span className={`text-xs ${val > 0 ? 'text-slate-950 font-black' : 'text-slate-600'}`}>{val}</span>
                     </div>
                   );
@@ -499,36 +620,64 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Total Tidak Terhubung Header */}
-            <div className="bg-blue-200 text-red-600 flex items-center justify-between px-3.5 py-2 font-black text-xs border-t-2 border-b-2 border-slate-800">
-              <span>Total Tidak Terhubung :</span>
+            {/* Total Tidak Terhubung Header (Clickable) */}
+            <div
+              onClick={() => openDrillDown('Total Tidak Terhubung', r => r.status_rtj === 'Pending' || r.status_rtj === 'Scheduled')}
+              className="bg-blue-200 hover:bg-blue-300 text-red-600 flex items-center justify-between px-3.5 py-2 font-black text-xs border-t-2 border-b-2 border-slate-800 cursor-pointer transition-all group"
+              title="Klik untuk rincian Total Tidak Terhubung"
+            >
+              <span className="group-hover:underline">Total Tidak Terhubung :</span>
               <span className="text-sm">{baseline.overview.totalTidakTerhubung}</span>
             </div>
 
-            {/* Detailed Reasons (Peach/Orange background) */}
+            {/* Detailed Reasons (Peach/Orange background - Clickable) */}
             <div className="bg-orange-100/80 divide-y divide-orange-200 text-xs font-bold text-slate-900">
-              <div className="flex items-center justify-between px-3 py-1.5">
-                <span>Tidak Diangkat</span>
+              <div
+                onClick={() => openDrillDown('Alasan: Tidak Diangkat', r => (r.status_rtj === 'Pending' || r.status_rtj === 'Scheduled') && (String(r.detail_kendala || '').toLowerCase().includes('tidak diangkat') || String(r.detail_kendala || '').toLowerCase().includes('td') || (!String(r.detail_kendala || '').toLowerCase().includes('aktif') && !String(r.detail_kendala || '').toLowerCase().includes('valid'))))}
+                className="flex items-center justify-between px-3 py-1.5 hover:bg-orange-200 cursor-pointer transition-all active:scale-[0.99] group"
+                title="Klik untuk rincian Tidak Diangkat"
+              >
+                <span className="group-hover:underline">Tidak Diangkat</span>
                 <span className="font-black text-slate-950">{baseline.overview.tidakTerhubungBreakdown.tidakDiangkat}</span>
               </div>
-              <div className="flex items-center justify-between px-3 py-1.5">
-                <span>Tidak Valid</span>
+              <div
+                onClick={() => openDrillDown('Alasan: Tidak Valid', r => (r.status_rtj === 'Pending' || r.status_rtj === 'Scheduled') && String(r.detail_kendala || '').toLowerCase().includes('valid'))}
+                className="flex items-center justify-between px-3 py-1.5 hover:bg-orange-200 cursor-pointer transition-all active:scale-[0.99] group"
+                title="Klik untuk rincian Tidak Valid"
+              >
+                <span className="group-hover:underline">Tidak Valid</span>
                 <span className="font-black text-slate-950">{baseline.overview.tidakTerhubungBreakdown.tidakValid}</span>
               </div>
-              <div className="flex items-center justify-between px-3 py-1.5">
-                <span>Tidak Ada Nada</span>
+              <div
+                onClick={() => openDrillDown('Alasan: Tidak Ada Nada', r => (r.status_rtj === 'Pending' || r.status_rtj === 'Scheduled') && String(r.detail_kendala || '').toLowerCase().includes('nada'))}
+                className="flex items-center justify-between px-3 py-1.5 hover:bg-orange-200 cursor-pointer transition-all active:scale-[0.99] group"
+                title="Klik untuk rincian Tidak Ada Nada"
+              >
+                <span className="group-hover:underline">Tidak Ada Nada</span>
                 <span className="font-black text-slate-950">{baseline.overview.tidakTerhubungBreakdown.tidakAdaNada}</span>
               </div>
-              <div className="flex items-center justify-between px-3 py-1.5">
-                <span>No Tidak Terpasang</span>
+              <div
+                onClick={() => openDrillDown('Alasan: No Tidak Terpasang', r => (r.status_rtj === 'Pending' || r.status_rtj === 'Scheduled') && String(r.detail_kendala || '').toLowerCase().includes('terpasang'))}
+                className="flex items-center justify-between px-3 py-1.5 hover:bg-orange-200 cursor-pointer transition-all active:scale-[0.99] group"
+                title="Klik untuk rincian No Tidak Terpasang"
+              >
+                <span className="group-hover:underline">No Tidak Terpasang</span>
                 <span className="font-black text-slate-950">{baseline.overview.tidakTerhubungBreakdown.noTidakTerpasang}</span>
               </div>
-              <div className="flex items-center justify-between px-3 py-1.5">
-                <span>No Salah Sambung</span>
+              <div
+                onClick={() => openDrillDown('Alasan: No Salah Sambung', r => (r.status_rtj === 'Pending' || r.status_rtj === 'Scheduled') && String(r.detail_kendala || '').toLowerCase().includes('salah sambung'))}
+                className="flex items-center justify-between px-3 py-1.5 hover:bg-orange-200 cursor-pointer transition-all active:scale-[0.99] group"
+                title="Klik untuk rincian No Salah Sambung"
+              >
+                <span className="group-hover:underline">No Salah Sambung</span>
                 <span className="font-black text-slate-950">{baseline.overview.tidakTerhubungBreakdown.noSalahSambung}</span>
               </div>
-              <div className="flex items-center justify-between px-3 py-1.5">
-                <span>No Tidak Aktif</span>
+              <div
+                onClick={() => openDrillDown('Alasan: No Tidak Aktif', r => (r.status_rtj === 'Pending' || r.status_rtj === 'Scheduled') && (String(r.detail_kendala || '').toLowerCase().includes('tidak aktif') || String(r.detail_kendala || '').toLowerCase().includes('ta')))}
+                className="flex items-center justify-between px-3 py-1.5 hover:bg-orange-200 cursor-pointer transition-all active:scale-[0.99] group"
+                title="Klik untuk rincian No Tidak Aktif"
+              >
+                <span className="group-hover:underline">No Tidak Aktif</span>
                 <span className="font-black text-slate-950">{baseline.overview.tidakTerhubungBreakdown.noTidakAktif}</span>
               </div>
             </div>
@@ -738,12 +887,71 @@ export default function Dashboard() {
       {/* 5-Step RTJ Process Diagram */}
       <ProcessFlowDiagram />
 
-      {/* Excel Import Modal */}
-      <ImportExcelModal
-        isOpen={isImportModalOpen}
-        onClose={() => setIsImportModalOpen(false)}
-        onSuccess={handleRefreshAll}
-      />
+      {/* Drill-Down Detail Modal */}
+      {drillDownModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[80vh] flex flex-col border border-slate-200">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 shrink-0">
+              <div>
+                <h3 className="font-black text-slate-900 text-sm">{drillDownModal.title}</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Total: <span className="font-bold text-slate-900">{drillDownModal.count}</span> unit
+                </p>
+              </div>
+              <button
+                onClick={() => setDrillDownModal(null)}
+                className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold transition-colors text-lg"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 p-2">
+              {drillDownModal.items.length === 0 ? (
+                <div className="text-center py-8 text-slate-400 text-sm">Tidak ada data untuk kategori ini.</div>
+              ) : (
+                <table className="w-full text-xs text-left border-collapse">
+                  <thead className="bg-slate-900 text-white sticky top-0">
+                    <tr>
+                      <th className="px-3 py-2">No</th>
+                      <th className="px-3 py-2">No. Polisi</th>
+                      <th className="px-3 py-2">Customer</th>
+                      <th className="px-3 py-2">Model</th>
+                      <th className="px-3 py-2">SA / FO</th>
+                      <th className="px-3 py-2">Tgl Service</th>
+                      <th className="px-3 py-2">Status</th>
+                      <th className="px-3 py-2">Kat.</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {drillDownModal.items.map((r, idx) => (
+                      <tr key={r.id || idx} className="hover:bg-slate-50">
+                        <td className="px-3 py-2 text-slate-500 font-bold">{idx + 1}</td>
+                        <td className="px-3 py-2 font-bold text-blue-700">{r.no_polisi}</td>
+                        <td className="px-3 py-2 font-semibold text-slate-900">{r.nama_customer}</td>
+                        <td className="px-3 py-2 text-slate-700">{r.model}</td>
+                        <td className="px-3 py-2">
+                          <span className="font-bold text-slate-800">{r.sa}</span>
+                          <span className="block text-[10px] text-slate-500">{r.fo}</span>
+                        </td>
+                        <td className="px-3 py-2 font-mono text-slate-600">{r.tanggal_service}</td>
+                        <td className="px-3 py-2">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            r.status_rtj === 'Completed' ? 'bg-emerald-100 text-emerald-800' :
+                            r.status_rtj === 'Pending' ? 'bg-amber-100 text-amber-800' :
+                            r.status_rtj === 'Rescheduled' ? 'bg-red-100 text-red-800' :
+                            'bg-blue-100 text-blue-800'
+                          }`}>{r.status_rtj}</span>
+                        </td>
+                        <td className="px-3 py-2 font-bold text-slate-700">{r.kategori_q}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Change Status Modal */}
       <ChangeStatusModal

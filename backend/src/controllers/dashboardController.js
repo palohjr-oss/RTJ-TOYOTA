@@ -2,8 +2,8 @@ import { db } from '../models/db.js';
 
 export const getSummary = async (req, res) => {
   try {
-    const { sa, fo, status, periode_mulai, periode_selesai } = req.query;
-    const summary = await db.getDashboardSummary({ sa, fo, status, periode_mulai, periode_selesai });
+    const { sa, fo, status, periode_mulai, periode_selesai, cabang } = req.query;
+    const summary = await db.getDashboardSummary({ sa, fo, status, periode_mulai, periode_selesai, cabang });
 
     return res.json({
       success: true,
@@ -20,8 +20,8 @@ export const getSummary = async (req, res) => {
 
 export const getChartData = async (req, res) => {
   try {
-    const { sa, fo, periode_mulai, periode_selesai } = req.query;
-    const charts = await db.getDashboardCharts({ sa, fo, periode_mulai, periode_selesai });
+    const { sa, fo, periode_mulai, periode_selesai, cabang } = req.query;
+    const charts = await db.getDashboardCharts({ sa, fo, periode_mulai, periode_selesai, cabang });
 
     return res.json({
       success: true,

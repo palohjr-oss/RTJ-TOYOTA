@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import DataRTJ from './pages/DataRTJ';
 import DetailRTJ from './pages/DetailRTJ';
 import InputRTJ from './pages/InputRTJ';
+import FollowUp from './pages/FollowUp';
 import Statistik from './pages/Statistik';
 import UserManagement from './pages/UserManagement';
 
@@ -78,6 +79,7 @@ export default function App() {
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="data-rtj" element={<DataRTJ />} />
               <Route path="data-rtj/:id" element={<DetailRTJ />} />
+              <Route path="follow-up" element={<FollowUp />} />
               <Route path="input-rtj" element={<InputRTJ />} />
               <Route path="statistik" element={<Statistik />} />
               <Route

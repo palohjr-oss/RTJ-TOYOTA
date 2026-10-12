@@ -19,8 +19,9 @@ export default function Sidebar({ isOpen, onClose }) {
   const navItems = [
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/data-rtj', label: 'Data RTJ', icon: TableProperties },
+    { to: '/follow-up', label: 'Follow-Up', icon: PhoneCall },
+    { to: '/statistik', label: 'Statistik', icon: BarChart3 },
     { to: '/input-rtj', label: 'Input RTJ', icon: PlusCircle },
-    { to: '/statistik', label: 'Statistik RTJ', icon: BarChart3 },
     ...(isAdmin ? [{ to: '/user', label: 'Kelola User', icon: Users }] : []),
   ];
 

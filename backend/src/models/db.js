@@ -1219,15 +1219,34 @@ export const db = {
     return createdItems;
   },
 
-  async getDashboardSummary({ sa, fo, status, periode_mulai, periode_selesai }) {
+  async getDashboardSummary({ sa, fo, status, periode_mulai, periode_selesai, cabang }) {
     const store = loadStore();
     let records = [...store.rtj];
+
+    // Helper to identify branch
+    const getBranch = (r) => {
+      const saUpper = String(r.sa || '').toUpperCase();
+      const srvUpper = String(r.service || '').toUpperCase();
+      const ketUpper = String(r.keterangan || '').toUpperCase();
+      const comb = `${saUpper} ${srvUpper} ${ketUpper}`;
+
+      if (comb.includes('KM2') || comb.includes('KM 2') || comb.includes('KM.2')) return 'SP';
+      if (comb.includes('PLH') || comb.includes('PELAIHARI')) return 'SP';
+      if (comb.includes('BATUBARA') || comb.includes('BTL') || comb.includes('BATULICIN')) return 'SP';
+      if (comb.includes('KTB') || comb.includes('KOTABARU')) return 'SP';
+      if (comb.includes('MRB') || comb.includes('MARABAHAN')) return 'SP';
+      if (comb.includes('BKT')) return 'BKT';
+      return 'BJM';
+    };
 
     if (sa && sa !== 'ALL') records = records.filter(r => r.sa && r.sa.toLowerCase() === sa.toLowerCase());
     if (fo && fo !== 'ALL') records = records.filter(r => r.fo && r.fo.toLowerCase() === fo.toLowerCase());
     if (status && status !== 'ALL') records = records.filter(r => r.status_rtj && r.status_rtj.toLowerCase() === status.toLowerCase());
     if (periode_mulai) records = records.filter(r => r.tanggal_service >= periode_mulai);
     if (periode_selesai) records = records.filter(r => r.tanggal_service <= periode_selesai);
+    if (cabang && cabang !== 'ALL') {
+      records = records.filter(r => getBranch(r) === cabang);
+    }
 
     const total = records.length;
     const completed = records.filter(r => r.status_rtj === 'Completed').length;
@@ -1244,22 +1263,6 @@ export const db = {
       Q4: { count: records.filter(r => r.kategori_q === 'Q4').length, desc: 'Reminder Service Berkala 12 Bulan / 20.000 KM +' },
       Q5: { count: records.filter(r => r.kategori_q === 'Q5').length, desc: 'Customer Inactive / Long Overdue Service Follow-up' },
       Q6: { count: records.filter(r => r.kategori_q === 'Q6').length, desc: 'Special Campaign / Booking Follow-up' }
-    };
-
-    // Helper to identify branch
-    const getBranch = (r) => {
-      const saUpper = String(r.sa || '').toUpperCase();
-      const srvUpper = String(r.service || '').toUpperCase();
-      const ketUpper = String(r.keterangan || '').toUpperCase();
-      const comb = `${saUpper} ${srvUpper} ${ketUpper}`;
-
-      if (comb.includes('KM2') || comb.includes('KM 2') || comb.includes('KM.2')) return 'SP';
-      if (comb.includes('PLH') || comb.includes('PELAIHARI')) return 'SP';
-      if (comb.includes('BATUBARA') || comb.includes('BTL') || comb.includes('BATULICIN')) return 'SP';
-      if (comb.includes('KTB') || comb.includes('KOTABARU')) return 'SP';
-      if (comb.includes('MRB') || comb.includes('MARABAHAN')) return 'SP';
-      if (comb.includes('BKT')) return 'BKT';
-      return 'BJM';
     };
 
     // Calculate real dynamic group numbers (BJM, SP, BKT, TOTAL)
@@ -1409,7 +1412,8 @@ export const db = {
       rescheduled: { count: rescheduled, percentage: calcPct(rescheduled) },
       qBreakdown,
       baselineDashboard: dynamicDashboard,
-      latestRTJ: records.slice(0, 10)
+      latestRTJ: records.slice(0, 10),
+      records: records.map(r => ({ ...r, cabang: getBranch(r) }))
     };
   },
 
@@ -1637,9 +1641,57 @@ export const db = {
       };
     });
 
+    const foMap = {};
+    for (const r of records) {
+      const foName = r.fo || 'Unassigned';
+      if (!foMap[foName]) {
+        foMap[foName] = { fo: foName, diangkat: 0, tidak_diangkat: 0, completed: 0, total: 0 };
+      }
+      if (r.status_rtj === 'Completed' || r.status_rtj === 'Rescheduled') {
+        foMap[foName].diangkat += 1;
+        if (r.status_rtj === 'Completed') foMap[foName].completed += 1;
+      } else {
+        foMap[foName].tidak_diangkat += 1;
+      }
+      foMap[foName].total += 1;
+    }
+    const foData = Object.values(foMap).map(f => ({
+      ...f,
+      rate: f.total > 0 ? ((f.diangkat / f.total) * 100).toFixed(0) + '%' : '0%'
+    })).sort((a, b) => b.total - a.total);
+
+    const completedTotal = records.filter(r => r.status_rtj === 'Completed').length;
+    const contactedTotal = records.filter(r => r.status_rtj === 'Completed' || r.status_rtj === 'Rescheduled').length;
+
+    const dealerQuestions = {
+      q1_masuk: records.length,
+      q2_fu: records.length,
+      q3_call: contactedTotal,
+      q4_fir: completedTotal,
+      q5_psfu: 5,
+      q6_perlu_fu: 0
+    };
+
+    const psfuStats = {
+      jumlah_psfu: 5,
+      perlu_follow_up: 0,
+      percentage_pengisian: '0%',
+      fir_ratio: '0%'
+    };
+
+    const surveyQuestions = {
+      kualitas_servis: { puas: 0, tidak_puas: 0 },
+      ketepatan_janji: { ya: 0, tidak: 0 },
+      lama_waktu: { puas: 0, tidak_puas: 0 }
+    };
+
     return {
       donutData,
       saData,
+      foData,
+      dealerQuestions,
+      psfuStats,
+      surveyQuestions,
       branchColumns,
       branchMatrixRows: dynamicMatrixRows,
       filterOptions: {
