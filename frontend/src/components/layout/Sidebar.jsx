@@ -9,7 +9,8 @@ import {
   LogOut, 
   Car, 
   ChevronRight,
-  ShieldCheck
+  ShieldCheck,
+  PhoneCall
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
