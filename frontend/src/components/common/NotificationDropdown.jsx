@@ -176,18 +176,24 @@ export default function NotificationDropdown() {
           {/* Notification List */}
           <div className="max-h-96 overflow-y-auto divide-y divide-slate-100/80">
             {filteredNotifications.length === 0 ? (
-              <div className="py-12 px-4 text-center">
-                <Inbox className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                <p className="text-xs font-bold text-slate-700">Tidak ada notifikasi</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  {filter === 'unread' ? 'Semua notifikasi sudah dibaca.' : 'Belum ada aktivitas baru.'}
+              <div className="py-12 px-6 text-center">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center mx-auto mb-3">
+                  <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+                </div>
+                <p className="text-xs font-black text-slate-800">
+                  {filter === 'unread' ? 'Semua Notifikasi Sudah Dibaca' : 'Belum Ada Notifikasi Baru'}
+                </p>
+                <p className="text-[11px] text-slate-500 mt-1 max-w-xs mx-auto leading-relaxed">
+                  {filter === 'unread'
+                    ? 'Tidak ada pembaruan data baru yang terlewat.'
+                    : 'Notifikasi akan muncul secara real-time saat ada input RTJ baru, import data, atau update follow-up.'}
                 </p>
               </div>
             ) : (
               filteredNotifications.map((notif) => (
                 <div
                   key={notif.id}
-                  onClick={() => !notif.is_read && markAsRead(notif.id)}
+                  onClick={() => markAsRead(notif.id)}
                   className={`p-3.5 transition-colors cursor-pointer ${getBgColor(
                     notif.type,
                     notif.is_read

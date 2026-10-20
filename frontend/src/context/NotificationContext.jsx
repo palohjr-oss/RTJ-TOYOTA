@@ -4,6 +4,51 @@ import { useAuth } from './AuthContext';
 
 const NotificationContext = createContext(null);
 
+const STORAGE_KEY_READ = 'rtj_read_notif_ids_v2';
+const STORAGE_KEY_SEEN = 'rtj_seen_toast_ids_v2';
+
+function getLocalReadIds() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_READ);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveLocalReadId(id) {
+  try {
+    const set = getLocalReadIds();
+    set.add(id);
+    localStorage.setItem(STORAGE_KEY_READ, JSON.stringify(Array.from(set).slice(-500)));
+  } catch {}
+}
+
+function saveLocalAllReadIds(ids) {
+  try {
+    const set = getLocalReadIds();
+    ids.forEach(id => set.add(id));
+    localStorage.setItem(STORAGE_KEY_READ, JSON.stringify(Array.from(set).slice(-500)));
+  } catch {}
+}
+
+function getSeenToastIds() {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY_SEEN);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveSeenToastId(id) {
+  try {
+    const set = getSeenToastIds();
+    set.add(id);
+    sessionStorage.setItem(STORAGE_KEY_SEEN, JSON.stringify(Array.from(set).slice(-200)));
+  } catch {}
+}
+
 // Audio chime using Web Audio API (safe, no external sound file dependency)
 function playNotificationChime() {
   try {
@@ -58,41 +103,64 @@ export function NotificationProvider({ children }) {
     try {
       const res = await api.get('/notifications?limit=50');
       if (res.data?.success) {
-        const list = res.data.data || [];
-        const unread = res.data.unread_count || 0;
+        const rawList = res.data.data || [];
+        const readIds = getLocalReadIds();
+        const seenToastIds = getSeenToastIds();
 
-        // Detect new notifications if not initial load
+        // Merge server list with local read state to guarantee read items never un-read
+        const processedList = rawList.map(n => ({
+          ...n,
+          is_read: Boolean(n.is_read || readIds.has(n.id))
+        }));
+
+        const trueUnreadCount = processedList.filter(n => !n.is_read).length;
+
+        // Detect genuinely new notifications (only if not initial page load)
         if (!isInitialLoadRef.current) {
-          const newItems = list.filter(n => !knownIdsRef.current.has(n.id) && !n.is_read);
+          const newItems = processedList.filter(n => {
+            // Must not be known yet, not read, not already seen in toast
+            if (knownIdsRef.current.has(n.id) || n.is_read || seenToastIds.has(n.id)) {
+              return false;
+            }
+            // Must be created very recently (within 2 minutes) to prevent old alerts
+            const createdAtTime = new Date(n.created_at).getTime();
+            const ageMs = Date.now() - createdAtTime;
+            return ageMs < 120000; // 2 minutes
+          });
+
           if (newItems.length > 0) {
-            // Play audio chime
             playNotificationChime();
 
-            // Trigger floating toasts (limit max 3 simultaneous toasts)
+            // Mark these new items as seen so they never toast again
+            newItems.forEach(item => saveSeenToastId(item.id));
+
+            // Show max 3 toasts
             newItems.slice(0, 3).forEach(item => {
               setToasts(prev => {
                 if (prev.some(t => t.id === item.id)) return prev;
-                return [item, ...prev].slice(0, 4);
+                return [item, ...prev].slice(0, 3);
               });
             });
           }
         }
 
-        // Update known IDs
-        list.forEach(n => knownIdsRef.current.add(n.id));
+        // Register all current IDs as known
+        processedList.forEach(n => {
+          knownIdsRef.current.add(n.id);
+        });
         isInitialLoadRef.current = false;
 
-        setNotifications(list);
-        setUnreadCount(unread);
+        setNotifications(processedList);
+        setUnreadCount(trueUnreadCount);
       }
     } catch (err) {
       if (!silent) {
-        console.warn('[Notifications] Gagal mengambil notifikasi:', err.message);
+        console.warn('[Notifications] Gagal sinkronisasi notifikasi:', err.message);
       }
     }
   }, [user]);
 
-  // Initial fetch and periodic polling (every 10 seconds)
+  // Initial fetch and periodic polling (every 8 seconds)
   useEffect(() => {
     if (!user) {
       setNotifications([]);
@@ -107,56 +175,43 @@ export function NotificationProvider({ children }) {
 
     const interval = setInterval(() => {
       fetchNotifications(true);
-    }, 10000); // 10s poll
+    }, 8000); // 8s poll
 
     return () => clearInterval(interval);
   }, [user, fetchNotifications]);
 
   // Mark single notification as read
   const markAsRead = async (id) => {
+    saveLocalReadId(id);
+    setNotifications(prev =>
+      prev.map(n => (n.id === id ? { ...n, is_read: true } : n))
+    );
+    setUnreadCount(prev => Math.max(0, prev - 1));
+
     try {
-      // Optimistic update
-      setNotifications(prev =>
-        prev.map(n => (n.id === id ? { ...n, is_read: true } : n))
-      );
-      setUnreadCount(prev => Math.max(0, prev - 1));
       await api.post('/notifications/read', { id });
     } catch (err) {
-      console.warn('Gagal menandai notifikasi dibaca:', err);
+      // Handled silently
     }
   };
 
   // Mark all notifications as read
   const markAllAsRead = async () => {
+    saveLocalAllReadIds(notifications.map(n => n.id));
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    setUnreadCount(0);
+
     try {
-      // Optimistic update
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-      setUnreadCount(0);
       await api.post('/notifications/read', { all: true });
     } catch (err) {
-      console.warn('Gagal menandai semua notifikasi dibaca:', err);
+      // Handled silently
     }
   };
 
   // Dismiss a floating toast
   const dismissToast = (id) => {
+    saveSeenToastId(id);
     setToasts(prev => prev.filter(t => t.id !== id));
-  };
-
-  // Manually trigger a toast notification (e.g. from local actions)
-  const triggerNotification = (notif) => {
-    const item = {
-      id: notif.id || `local-${Date.now()}`,
-      title: notif.title || 'Pemberitahuan Sistem',
-      message: notif.message || '',
-      type: notif.type || 'info',
-      created_at: new Date().toISOString(),
-      ...notif
-    };
-    playNotificationChime();
-    setToasts(prev => [item, ...prev].slice(0, 4));
-    // Refetch latest from server
-    setTimeout(() => fetchNotifications(true), 1200);
   };
 
   return (
@@ -168,8 +223,7 @@ export function NotificationProvider({ children }) {
         fetchNotifications,
         markAsRead,
         markAllAsRead,
-        dismissToast,
-        triggerNotification
+        dismissToast
       }}
     >
       {children}

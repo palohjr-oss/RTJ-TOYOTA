@@ -756,28 +756,8 @@ function loadStore() {
       updated = true;
     }
 
-    if (!parsed.notifications || !Array.isArray(parsed.notifications) || parsed.notifications.length === 0) {
+    if (!parsed.notifications || !Array.isArray(parsed.notifications)) {
       parsed.notifications = [];
-      const recentRTJ = (parsed.rtj || []).slice(0, 6);
-      recentRTJ.forEach((item, idx) => {
-        parsed.notifications.push({
-          id: `notif-init-${idx + 1}`,
-          type: item.status_rtj === 'Completed' ? 'update' : 'create',
-          title: item.status_rtj === 'Completed' ? 'Follow-Up Selesai (Completed)' : 'Data RTJ Tersedia',
-          message: `${item.nama_customer || 'Pelanggan'} (${item.no_polisi || '-'}) - ${item.model || 'Toyota'} [${item.kategori_q || 'Q1'}]`,
-          details: {
-            id: item.id,
-            no_wo: item.no_wo,
-            nama_customer: item.nama_customer,
-            no_polisi: item.no_polisi,
-            kategori_q: item.kategori_q,
-            status_rtj: item.status_rtj,
-          },
-          created_by: item.sa || 'System',
-          created_at: item.created_at || new Date(Date.now() - idx * 3600000).toISOString(),
-          read_by: []
-        });
-      });
       updated = true;
     }
 

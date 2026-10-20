@@ -23,7 +23,6 @@ import { useNotifications } from '../context/NotificationContext';
 
 // ─── Edit Row Modal ────────────────────────────────────────────────────────────
 function EditRowModal({ record, onClose, onSave }) {
-  const { triggerNotification } = useNotifications();
   const [form, setForm] = useState({
     no_wo: record.no_wo || '',
     tanggal_service: record.tanggal_service || '',
@@ -66,16 +65,6 @@ function EditRowModal({ record, onClose, onSave }) {
         }
       };
       await api.put(`/rtj/${record.id}`, payload);
-      triggerNotification({
-        type: 'update',
-        title: 'Data Follow-Up Diperbarui',
-        message: `${form.nama_customer || record.nama_customer} (${form.no_polisi || record.no_polisi}) berhasil disimpan.`,
-        details: {
-          no_polisi: form.no_polisi || record.no_polisi,
-          kategori_q: form.kategori_q || record.kategori_q,
-          status_rtj: form.status_rtj || record.status_rtj,
-        }
-      });
       if (onSave) onSave();
       onClose();
     } catch (err) {
@@ -251,7 +240,7 @@ function EditRowModal({ record, onClose, onSave }) {
 // ─── Main FollowUp Page ────────────────────────────────────────────────────────
 export default function FollowUp() {
   const queryClient = useQueryClient();
-  const { fetchNotifications, triggerNotification } = useNotifications();
+  const { fetchNotifications } = useNotifications();
   const [search, setSearch] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState('ALL');
   const [cabang, setCabang] = useState('ALL');
@@ -369,11 +358,6 @@ export default function FollowUp() {
     queryClient.invalidateQueries({ queryKey: ['dashboard-chart-options'] });
     queryClient.invalidateQueries({ queryKey: ['dashboard-chart-analytics'] });
     fetchNotifications(true);
-    triggerNotification({
-      type: 'import',
-      title: 'Import Data Selesai',
-      message: 'Data RTJ baru berhasil diimpor dan disinkronkan ke sistem.'
-    });
   };
 
   const handleEditSave = () => {
@@ -387,11 +371,6 @@ export default function FollowUp() {
       await api.delete(`/rtj/${id}`);
       queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
       fetchNotifications(true);
-      triggerNotification({
-        type: 'delete',
-        title: 'Data Dihapus',
-        message: `Data Follow-Up untuk "${name}" berhasil dihapus.`
-      });
     } catch (err) {
       alert(err.response?.data?.message || 'Gagal menghapus data.');
     }
