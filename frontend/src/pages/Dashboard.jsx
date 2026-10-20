@@ -241,12 +241,11 @@ export default function Dashboard() {
       <div className="bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 p-6 rounded-3xl text-white shadow-2xl border border-slate-800 space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center space-x-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-toyota-red animate-pulse"></span>
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Wira Toyota Banjarmasin</span>
+            <div className="inline-flex items-center px-3 py-1 rounded-full bg-red-600 text-white text-[11px] font-black tracking-wider uppercase mb-2 shadow-sm">
+              ALL GR BJM, SP & TMS
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black mt-2 tracking-tight">
-              PSF Uwira BJM ONLY, SERVICE POINT & TMS
+            <h1 className="text-2xl sm:text-3xl font-black mt-1 tracking-tight">
+              ALL GR BJM ONLY, SERVICE POINT & TMS
             </h1>
             <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-xl">
               Hasil dan Monitoring Dari Follow-Up Service Berkala Unit Pelanggan Secara Terstruktur.
