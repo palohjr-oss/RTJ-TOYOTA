@@ -3,7 +3,7 @@ import { db } from '../models/db.js';
 
 // Valid enum values
 const VALID_STATUSES = ['Scheduled', 'Completed', 'Pending', 'Rescheduled'];
-const VALID_CATEGORIES = ['Q1', 'Q2', 'Q3', 'Q4', 'Q5'];
+const VALID_CATEGORIES = ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6'];
 
 // Normalize column header keys
 function normalizeKey(str) {
@@ -449,17 +449,18 @@ export const importExcel = async (req, res) => {
         }
       }
 
-      // 5. Kategori Q (Q1-Q5)
+      // 5. Kategori Q (Q1-Q6)
       let kategoriQ = 'Q1';
       if (mapped.kategori_q) {
         const upper = String(mapped.kategori_q).trim().toUpperCase();
         if (VALID_CATEGORIES.includes(upper)) {
           kategoriQ = upper;
-        } else if (upper.includes('1')) kategoriQ = 'Q1';
-        else if (upper.includes('2')) kategoriQ = 'Q2';
-        else if (upper.includes('3')) kategoriQ = 'Q3';
-        else if (upper.includes('4')) kategoriQ = 'Q4';
+        } else if (upper.includes('6')) kategoriQ = 'Q6';
         else if (upper.includes('5')) kategoriQ = 'Q5';
+        else if (upper.includes('4')) kategoriQ = 'Q4';
+        else if (upper.includes('3')) kategoriQ = 'Q3';
+        else if (upper.includes('2')) kategoriQ = 'Q2';
+        else if (upper.includes('1')) kategoriQ = 'Q1';
       }
 
       if (rowErrors.length > 0) {

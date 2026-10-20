@@ -1,81 +1,341 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  Legend, 
-  ResponsiveContainer, 
-  PieChart, 
-  Pie, 
-  Cell 
-} from 'recharts';
-import { 
-  BarChart3, 
-  PieChart as PieIcon, 
-  Filter, 
-  RotateCcw, 
-  ClipboardList, 
-  CheckCircle2, 
-  Clock, 
-  AlertTriangle,
-  Award,
-  Layers,
-  Sparkles,
+import {
   Download,
+  RotateCcw,
+  ChevronRight,
+  X,
+  User,
+  Car,
+  Phone,
+  Calendar,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  Minus,
   Building2,
-  PhoneCall,
-  PhoneOff,
-  CheckCheck
+  Filter,
+  ClipboardList
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import api from '../api/client';
-import StatCard from '../components/common/StatCard';
-import CategoryBadge from '../components/common/CategoryBadge';
 
+// ─── Konstanta Kategori Q ─────────────────────────────────────────────────────
+const Q_CATEGORIES = [
+  { key: 'Q1', label: 'Q1', desc: 'Kualitas Hasil Service', color: 'from-blue-600 to-blue-700', bg: 'bg-blue-600', light: 'bg-blue-50 border-blue-200', text: 'text-blue-700', badge: 'bg-blue-600' },
+  { key: 'Q2', label: 'Q2', desc: 'Ketepatan Pengiriman Servis', color: 'from-violet-600 to-violet-700', bg: 'bg-violet-600', light: 'bg-violet-50 border-violet-200', text: 'text-violet-700', badge: 'bg-violet-600' },
+  { key: 'Q3', label: 'Q3', desc: 'Lama Waktu Servis', color: 'from-emerald-600 to-emerald-700', bg: 'bg-emerald-600', light: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-700', badge: 'bg-emerald-600' },
+  { key: 'Q4', label: 'Q4', desc: 'FIR Total', color: 'from-amber-500 to-amber-600', bg: 'bg-amber-500', light: 'bg-amber-50 border-amber-200', text: 'text-amber-700', badge: 'bg-amber-500' },
+  { key: 'Q5', label: 'Q5', desc: 'Jumlah PSFU', color: 'from-rose-600 to-rose-700', bg: 'bg-rose-600', light: 'bg-rose-50 border-rose-200', text: 'text-rose-700', badge: 'bg-rose-600' },
+  { key: 'Q6', label: 'Q6', desc: 'Perlu Di-Call', color: 'from-slate-600 to-slate-700', bg: 'bg-slate-600', light: 'bg-slate-50 border-slate-200', text: 'text-slate-700', badge: 'bg-slate-600' },
+];
+
+// ─── Status Proses Badge ───────────────────────────────────────────────────────
+function StepBadge({ status }) {
+  const map = {
+    'Selesai':       { bg: 'bg-emerald-100 text-emerald-800 border-emerald-300', label: 'Selesai' },
+    'Dalam Proses':  { bg: 'bg-blue-100 text-blue-800 border-blue-300', label: 'Dalam Proses' },
+    'Menunggu':      { bg: 'bg-amber-100 text-amber-800 border-amber-300', label: 'Menunggu' },
+    'Belum':         { bg: 'bg-slate-100 text-slate-600 border-slate-300', label: 'Belum' },
+    'Completed':     { bg: 'bg-emerald-100 text-emerald-800 border-emerald-300', label: 'Selesai' },
+    'Pending':       { bg: 'bg-amber-100 text-amber-800 border-amber-300', label: 'Menunggu' },
+    'Scheduled':     { bg: 'bg-blue-100 text-blue-800 border-blue-300', label: 'Dalam Proses' },
+    'Rescheduled':   { bg: 'bg-violet-100 text-violet-800 border-violet-300', label: 'Menunggu' },
+  };
+  const cfg = map[status] || map['Belum'];
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold border ${cfg.bg}`}>
+      {status === 'Completed' || status === 'Selesai' ? <CheckCircle2 className="w-3 h-3 mr-1" /> :
+       status === 'Dalam Proses' || status === 'Scheduled' ? <Clock className="w-3 h-3 mr-1" /> :
+       status === 'Menunggu' || status === 'Pending' || status === 'Rescheduled' ? <AlertCircle className="w-3 h-3 mr-1" /> :
+       <Minus className="w-3 h-3 mr-1" />}
+      {cfg.label}
+    </span>
+  );
+}
+
+// ─── Derive step status from RTJ record ───────────────────────────────────────
+function deriveSteps(record) {
+  const s = record.status_rtj;
+  if (s === 'Completed') {
+    return { recovery: 'Selesai', stepIntern: 'Selesai', listConfirm: 'Selesai', recoveryAction: 'Selesai', tindakLanjut: 'Selesai' };
+  } else if (s === 'Rescheduled') {
+    return { recovery: 'Selesai', stepIntern: 'Selesai', listConfirm: 'Selesai', recoveryAction: 'Menunggu', tindakLanjut: 'Belum' };
+  } else if (s === 'Scheduled') {
+    return { recovery: 'Dalam Proses', stepIntern: 'Dalam Proses', listConfirm: 'Dalam Proses', recoveryAction: 'Belum', tindakLanjut: 'Belum' };
+  } else {
+    // Pending
+    return { recovery: 'Menunggu', stepIntern: 'Menunggu', listConfirm: 'Menunggu', recoveryAction: 'Belum', tindakLanjut: 'Belum' };
+  }
+}
+
+// ─── Detail Customer Modal ─────────────────────────────────────────────────────
+function CustomerDetailModal({ record, onClose, qCat }) {
+  if (!record) return null;
+  const steps = deriveSteps(record);
+  const cat = Q_CATEGORIES.find(c => c.key === qCat) || Q_CATEGORIES[0];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-slate-200">
+        {/* Header */}
+        <div className={`bg-gradient-to-r ${cat.color} p-6 rounded-t-3xl text-white`}>
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-xs font-bold bg-white/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                {cat.key} — {cat.desc}
+              </span>
+              <h2 className="text-xl font-black mt-2">{record.nama_customer || '-'}</h2>
+              <p className="text-sm opacity-80 font-medium mt-0.5">{record.no_polisi || '-'} • {record.model || '-'}</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-xl bg-white/20 hover:bg-white/30 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="p-6 space-y-5">
+          {/* Info Customer */}
+          <div>
+            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-3">Informasi Customer</h3>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { icon: User, label: 'Nama Customer', value: record.nama_customer },
+                { icon: Car, label: 'No. Polisi', value: record.no_polisi },
+                { icon: Car, label: 'Tipe Unit', value: record.model },
+                { icon: Phone, label: 'No. HP', value: record.no_hp },
+                { icon: Calendar, label: 'Tgl Service', value: record.tanggal_service },
+                { icon: ClipboardList, label: 'No. WO', value: record.no_wo },
+                { icon: Building2, label: 'Cabang', value: record.cabang },
+                { icon: User, label: 'Service Advisor', value: record.sa },
+                { icon: User, label: 'Front Officer', value: record.fo },
+                { icon: User, label: 'Teknisi', value: record.teknisi },
+              ].map(({ icon: Icon, label, value }) => (
+                <div key={label} className="flex items-start space-x-2.5 bg-slate-50 rounded-xl p-3 border border-slate-100">
+                  <Icon className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">{label}</p>
+                    <p className="text-xs font-bold text-slate-800 mt-0.5">{value || '-'}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Pekerjaan / Service */}
+          {record.service && (
+            <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+              <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Pekerjaan / Service</p>
+              <p className="text-xs font-semibold text-slate-800">{record.service}</p>
+            </div>
+          )}
+
+          {/* Kendala */}
+          {(record.detail_kendala || record.keterangan) && (
+            <div className="bg-rose-50 rounded-xl p-4 border border-rose-200">
+              <p className="text-[10px] font-bold text-rose-500 uppercase mb-1">Kendala / Keluhan</p>
+              <p className="text-xs font-semibold text-rose-800">{record.detail_kendala || record.keterangan}</p>
+            </div>
+          )}
+
+          {/* Progres Recovery — 5 Tahapan */}
+          <div>
+            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-3">Progres Recovery</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
+              {[
+                { label: 'Recovery', value: steps.recovery },
+                { label: 'Step Intern Discuss', value: steps.stepIntern },
+                { label: 'List Confirm', value: steps.listConfirm },
+                { label: 'Recovery Action', value: steps.recoveryAction },
+                { label: 'Tindak Lanjut', value: steps.tindakLanjut },
+              ].map((step, idx) => (
+                <div key={step.label} className="flex flex-col items-center space-y-1 bg-slate-50 rounded-xl p-3 border border-slate-100 text-center">
+                  <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-600 text-[10px] font-black flex items-center justify-center">
+                    {idx + 1}
+                  </span>
+                  <p className="text-[10px] font-bold text-slate-500">{step.label}</p>
+                  <StepBadge status={step.value} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Status Follow Up */}
+          <div className="flex items-center justify-between bg-slate-50 rounded-xl p-4 border border-slate-100">
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Status Follow-Up</p>
+              <p className="text-sm font-black text-slate-900 mt-0.5">{record.status_rtj || '-'}</p>
+            </div>
+            <StepBadge status={record.status_rtj} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Q Detail Table Modal ──────────────────────────────────────────────────────
+function QDetailModal({ qKey, records, onClose }) {
+  const [page, setPage] = useState(1);
+  const [selectedRecord, setSelectedRecord] = useState(null);
+  const limit = 10;
+  const cat = Q_CATEGORIES.find(c => c.key === qKey) || Q_CATEGORIES[0];
+  const totalPages = Math.ceil(records.length / limit) || 1;
+  const paginated = records.slice((page - 1) * limit, page * limit);
+
+  return (
+    <>
+      {selectedRecord && (
+        <CustomerDetailModal
+          record={selectedRecord}
+          qCat={qKey}
+          onClose={() => setSelectedRecord(null)}
+        />
+      )}
+      <div className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col border border-slate-200">
+          {/* Header */}
+          <div className={`bg-gradient-to-r ${cat.color} p-5 rounded-t-3xl text-white flex items-center justify-between shrink-0`}>
+            <div>
+              <div className="flex items-center space-x-2">
+                <span className="text-xs font-bold bg-white/20 px-2.5 py-0.5 rounded-full uppercase">
+                  {cat.key}
+                </span>
+                <span className="text-sm font-bold opacity-90">{cat.desc}</span>
+              </div>
+              <p className="text-2xl font-black mt-1">{records.length} Unit</p>
+              <p className="text-xs opacity-75 mt-0.5">Klik unit untuk melihat detail customer & progres recovery</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2.5 rounded-xl bg-white/20 hover:bg-white/30 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Table */}
+          <div className="overflow-auto flex-1">
+            <table className="w-full text-xs text-left border-collapse whitespace-nowrap">
+              <thead className="sticky top-0 z-10">
+                <tr className="bg-slate-900 text-white text-[10px] uppercase tracking-wider">
+                  <th className="px-3 py-2.5 text-center font-black">No</th>
+                  <th className="px-3 py-2.5 font-black">No. Polisi / Unit</th>
+                  <th className="px-3 py-2.5 font-black">Nama Customer</th>
+                  <th className="px-3 py-2.5 font-black">Tipe</th>
+                  <th className="px-3 py-2.5 font-black text-center">Recovery</th>
+                  <th className="px-3 py-2.5 font-black text-center">Step Intern</th>
+                  <th className="px-3 py-2.5 font-black text-center">List Confirm</th>
+                  <th className="px-3 py-2.5 font-black text-center">Recovery Action</th>
+                  <th className="px-3 py-2.5 font-black text-center">Tindak Lanjut</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
+                {paginated.length === 0 ? (
+                  <tr>
+                    <td colSpan="9" className="text-center py-12 text-slate-400 font-semibold">
+                      Tidak ada data untuk kategori {qKey}
+                    </td>
+                  </tr>
+                ) : paginated.map((r, idx) => {
+                  const steps = deriveSteps(r);
+                  return (
+                    <tr
+                      key={r.id || idx}
+                      className="hover:bg-slate-50 cursor-pointer transition-colors"
+                      onClick={() => setSelectedRecord(r)}
+                    >
+                      <td className="px-3 py-2 text-center font-bold text-slate-400">
+                        {(page - 1) * limit + idx + 1}
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="font-black text-blue-700">{r.no_polisi || '-'}</div>
+                        <div className="text-[10px] text-slate-500">{r.no_wo || ''}</div>
+                      </td>
+                      <td className="px-3 py-2 font-semibold text-slate-900 max-w-[180px] truncate">
+                        {r.nama_customer || '-'}
+                      </td>
+                      <td className="px-3 py-2 text-slate-600">
+                        {r.model || '-'}
+                      </td>
+                      <td className="px-3 py-2 text-center"><StepBadge status={steps.recovery} /></td>
+                      <td className="px-3 py-2 text-center"><StepBadge status={steps.stepIntern} /></td>
+                      <td className="px-3 py-2 text-center"><StepBadge status={steps.listConfirm} /></td>
+                      <td className="px-3 py-2 text-center"><StepBadge status={steps.recoveryAction} /></td>
+                      <td className="px-3 py-2 text-center"><StepBadge status={steps.tindakLanjut} /></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          <div className="flex items-center justify-between px-5 py-3 border-t border-slate-200 text-xs text-slate-500 shrink-0 bg-white rounded-b-3xl">
+            <span>Menampilkan <b>{records.length > 0 ? (page-1)*limit+1 : 0}</b>–<b>{Math.min(page*limit, records.length)}</b> dari <b>{records.length}</b> unit</span>
+            <div className="flex items-center space-x-2">
+              <button
+                disabled={page === 1}
+                onClick={() => setPage(p => Math.max(1, p-1))}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 disabled:opacity-40 font-bold text-slate-600"
+              >‹</button>
+              <span className="font-bold px-1">{page} / {totalPages}</span>
+              <button
+                disabled={page === totalPages}
+                onClick={() => setPage(p => Math.min(totalPages, p+1))}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 disabled:opacity-40 font-bold text-slate-600"
+              >›</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── Main Statistik Page ───────────────────────────────────────────────────────
 export default function Statistik() {
   const [selectedPeriod, setSelectedPeriod] = useState('ALL');
-  const [sa, setSa] = useState('ALL');
   const [periodeMulai, setPeriodeMulai] = useState('');
   const [periodeSelesai, setPeriodeSelesai] = useState('');
+  const [sa, setSa] = useState('ALL');
+  const [appliedFilters, setAppliedFilters] = useState({ sa: 'ALL', periode_mulai: '', periode_selesai: '' });
+  const [activeQ, setActiveQ] = useState(null);   // currently selected Q card (for sidebar highlight)
+  const [drilldownQ, setDrilldownQ] = useState(null); // opens full modal
 
-  const [appliedFilters, setAppliedFilters] = useState({
-    sa: 'ALL',
-    periode_mulai: '',
-    periode_selesai: ''
-  });
-
-  // Fetch chart & matrix data - gunakan queryKey yang sama dengan Dashboard agar memanfaatkan cache
+  // ── Fetch filter options ──────────────────────────────────────────────────
   const { data: chartOptionsData } = useQuery({
     queryKey: ['dashboard-chart-options'],
     queryFn: async () => {
       const res = await api.get('/dashboard/chart');
       return res.data.data;
     },
-    placeholderData: (previousData) => previousData,
+    placeholderData: (prev) => prev,
   });
 
-  const { data: chartData, isLoading } = useQuery({
-    queryKey: ['dashboard-chart-analytics', appliedFilters],
+  // ── Fetch summary (contains records with kategori_q) ─────────────────────
+  const { data: summaryData, isLoading } = useQuery({
+    queryKey: ['dashboard-summary', appliedFilters],
     queryFn: async () => {
       const params = {};
       if (appliedFilters.sa !== 'ALL') params.sa = appliedFilters.sa;
       if (appliedFilters.periode_mulai) params.periode_mulai = appliedFilters.periode_mulai;
       if (appliedFilters.periode_selesai) params.periode_selesai = appliedFilters.periode_selesai;
-
-      const res = await api.get('/dashboard/chart', { params });
+      const res = await api.get('/dashboard/summary', { params });
       return res.data.data;
     },
-    placeholderData: (previousData) => previousData,
+    placeholderData: (prev) => prev,
   });
 
-  const availableMonths = chartOptionsData?.filterOptions?.availableMonths || chartData?.filterOptions?.availableMonths || [];
-  const saList = chartOptionsData?.filterOptions?.saList || chartData?.filterOptions?.saList || [];
+  const availableMonths = chartOptionsData?.filterOptions?.availableMonths || [];
+  const saList = chartOptionsData?.filterOptions?.saList || [];
+  const allRecords = summaryData?.records || [];
 
-  // Auto-select bulan terbaru saat pertama load
+  // Auto-select latest month
   React.useEffect(() => {
     if (availableMonths.length > 0 && selectedPeriod === 'ALL') {
       const latest = availableMonths[0];
@@ -83,499 +343,344 @@ export default function Statistik() {
         setSelectedPeriod(latest.key);
         setPeriodeMulai(latest.startDate);
         setPeriodeSelesai(latest.endDate);
-        setAppliedFilters(prev => ({
-          ...prev,
-          periode_mulai: latest.startDate,
-          periode_selesai: latest.endDate
-        }));
+        setAppliedFilters(prev => ({ ...prev, periode_mulai: latest.startDate, periode_selesai: latest.endDate }));
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chartOptionsData]);
 
-
-  const handleMonthChange = (monthKey) => {
-    setSelectedPeriod(monthKey);
-    if (monthKey === 'ALL') {
-      setPeriodeMulai('');
-      setPeriodeSelesai('');
-      setAppliedFilters(prev => ({
-        ...prev,
-        periode_mulai: '',
-        periode_selesai: ''
-      }));
+  const handleMonthChange = (key) => {
+    setSelectedPeriod(key);
+    if (key === 'ALL') {
+      setPeriodeMulai(''); setPeriodeSelesai('');
+      setAppliedFilters(prev => ({ ...prev, periode_mulai: '', periode_selesai: '' }));
     } else {
-      const found = availableMonths.find(m => m.key === monthKey);
+      const found = availableMonths.find(m => m.key === key);
       if (found) {
-        setPeriodeMulai(found.startDate);
-        setPeriodeSelesai(found.endDate);
-        setAppliedFilters(prev => ({
-          ...prev,
-          periode_mulai: found.startDate,
-          periode_selesai: found.endDate
-        }));
+        setPeriodeMulai(found.startDate); setPeriodeSelesai(found.endDate);
+        setAppliedFilters(prev => ({ ...prev, periode_mulai: found.startDate, periode_selesai: found.endDate }));
       }
     }
   };
 
-  const handleApplyFilter = (e) => {
+  const handleApply = (e) => {
     e?.preventDefault();
-    setAppliedFilters({
-      sa,
-      periode_mulai: periodeMulai,
-      periode_selesai: periodeSelesai
-    });
+    setAppliedFilters({ sa, periode_mulai: periodeMulai, periode_selesai: periodeSelesai });
   };
 
-  const handleResetFilter = () => {
-    setSa('ALL');
-    setPeriodeMulai('');
-    setPeriodeSelesai('');
-    setSelectedPeriod('ALL');
-    setAppliedFilters({
-      sa: 'ALL',
-      periode_mulai: '',
-      periode_selesai: ''
-    });
+  const handleReset = () => {
+    setSa('ALL'); setPeriodeMulai(''); setPeriodeSelesai(''); setSelectedPeriod('ALL');
+    setAppliedFilters({ sa: 'ALL', periode_mulai: '', periode_selesai: '' });
+    setActiveQ(null);
   };
 
-  const currentPeriodLabel = (() => {
-    if (selectedPeriod === 'ALL' || (!appliedFilters.periode_mulai && !appliedFilters.periode_selesai)) {
-      return 'SEMUA PERIODE';
-    }
-    const found = availableMonths.find(m => m.key === selectedPeriod);
-    if (found) return found.label;
-    if (appliedFilters.periode_mulai && appliedFilters.periode_selesai) {
-      return `${appliedFilters.periode_mulai} s/d ${appliedFilters.periode_selesai}`;
-    }
-    if (appliedFilters.periode_mulai) return `Mulai ${appliedFilters.periode_mulai}`;
-    return `Sampai ${appliedFilters.periode_selesai}`;
-  })();
+  // ── Compute per-Q counts from Follow-Up records ───────────────────────────
+  const qStats = useMemo(() => {
+    return Q_CATEGORIES.map(cat => {
+      const recs = allRecords.filter(r => (r.kategori_q || 'Q1') === cat.key);
+      return { ...cat, count: recs.length, records: recs };
+    });
+  }, [allRecords]);
 
-  const branchColumns = chartData?.branchColumns || [
-    { key: 'bjm_all', label: 'BJM ALL', isTotal: true },
-    { key: 'bjm_saja', label: 'BJM SAJA' },
-    { key: 'sp_km2', label: 'SP KM2' },
-    { key: 'sp_plh', label: 'SP PLH' },
-    { key: 'sp_btl', label: 'SP BTL' },
-    { key: 'sp_ktb', label: 'SP KTB' },
-    { key: 'sp_mrb', label: 'SP MRB' },
-    { key: 'bkt_1', label: 'BKT 1' },
-    { key: 'bkt_2', label: 'BKT 2' },
-    { key: 'bkt_3', label: 'BKT 3' },
-    { key: 'bkt_4', label: 'BKT 4' },
-    { key: 'bkt_5', label: 'BKT 5' },
-    { key: 'bkt_6', label: 'BKT 6' }
-  ];
+  const totalUnits = allRecords.length;
+  const totalFIR = allRecords.filter(r => r.status_rtj === 'Completed').length;
+  const totalPending = allRecords.filter(r => r.status_rtj === 'Pending').length;
+  const totalTerhubung = allRecords.filter(r => r.status_rtj === 'Completed' || r.status_rtj === 'Rescheduled').length;
+  const totalNonFIR = Q_CATEGORIES.slice(0, 6).reduce((acc, c) => acc + qStats.find(q => q.key === c.key)?.count || 0, 0);
 
-  // Data real dari API - kosong jika belum ada data
-  const branchMatrixRows = chartData?.branchMatrixRows || [];
+  const selectedQData = activeQ ? qStats.find(q => q.key === activeQ) : null;
 
-  // Export Matrix Table to Excel
+  // ── Export Excel ──────────────────────────────────────────────────────────
   const handleExportExcel = () => {
-    const tableData = branchMatrixRows.map((row) => {
-      const rowObj = { 'Kategori / Baris': row.label };
-      branchColumns.forEach((col) => {
-        rowObj[col.label] = row.values[col.key] !== undefined ? row.values[col.key] : 0;
-      });
-      return rowObj;
-    });
-
-    const ws = XLSX.utils.json_to_sheet(tableData);
+    const rows = qStats.map(q => ({
+      'Kategori Q': q.key,
+      'Deskripsi': q.desc,
+      'Jumlah Unit': q.count,
+      'Persentase': totalUnits > 0 ? ((q.count / totalUnits) * 100).toFixed(1) + '%' : '0%',
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Statistik Cabang RTJ');
-    XLSX.writeFile(wb, `Statistik_RTJ_Per_Cabang_${selectedPeriod.replace(/\s+/g, '_')}.xlsx`);
+    XLSX.utils.book_append_sheet(wb, ws, 'Statistik RTJ');
+    XLSX.writeFile(wb, `Statistik_RTJ_BJM_${selectedPeriod}.xlsx`);
   };
-
-  // Branch Chart Data
-  const branchComparisonChartData = [
-    { name: 'BJM SAJA', UnitEntry: 809, FollowUp: 783, FIR: 662 },
-    { name: 'SP KM2', UnitEntry: 107, FollowUp: 106, FIR: 84 },
-    { name: 'SP PLH', UnitEntry: 109, FollowUp: 109, FIR: 95 },
-    { name: 'SP BTL', UnitEntry: 290, FollowUp: 289, FIR: 245 },
-    { name: 'SP KTB', UnitEntry: 92, FollowUp: 92, FIR: 78 },
-    { name: 'SP MRB', UnitEntry: 39, FollowUp: 39, FIR: 37 },
-    { name: 'BKT 3', UnitEntry: 46, FollowUp: 46, FIR: 45 },
-  ];
 
   return (
-    <div className="space-y-6">
-      {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 p-6 rounded-3xl text-white shadow-2xl border border-slate-800">
-        <div>
-          <div className="flex items-center space-x-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-toyota-red"></span>
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
-              Wira Toyota Banjarmasin
-            </span>
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-black mt-1 tracking-tight">
-            Statistik & Rekapitulasi RTJ Per Cabang
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl">
-            Matriks lengkap perbandingan performa Follow-Up, FIR, Non-FIR, dan detail Tidak Terhubung per Bengkel / Service Point / BKT.
-          </p>
-        </div>
+    <>
+      {/* Q Detail Drill-down Modal */}
+      {drilldownQ && (
+        <QDetailModal
+          qKey={drilldownQ}
+          records={qStats.find(q => q.key === drilldownQ)?.records || []}
+          onClose={() => setDrilldownQ(null)}
+        />
+      )}
 
-        <div className="flex items-center space-x-3 shrink-0">
-          <button
-            onClick={handleExportExcel}
-            className="flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-md active:scale-95"
-          >
-            <Download className="w-4 h-4" />
-            <span>Download Excel</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Filter Bar */}
-      <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-card">
-        <form onSubmit={handleApplyFilter} className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-3">
+      <div className="space-y-6">
+        {/* ── Header Banner ── */}
+        <div className="bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 p-6 rounded-3xl text-white shadow-2xl border border-slate-800">
+          <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
             <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">
-                Periode Bulan
-              </label>
+              <div className="flex items-center space-x-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-toyota-red animate-pulse"></span>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                  Wira Toyota Banjarmasin
+                </span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-black mt-2 tracking-tight">
+                Statistik RTJ GR BJM ONLY, SERVICE POINT & TMS
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl">
+                Alur proses RTJ sesuai dengan kendala/keluhan. Seluruh data bersumber dari Data Follow-Up.
+              </p>
+            </div>
+            <button
+              onClick={handleExportExcel}
+              className="shrink-0 flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-md active:scale-95"
+            >
+              <Download className="w-4 h-4" />
+              <span>Download Excel</span>
+            </button>
+          </div>
+        </div>
+
+        {/* ── Filter Bar ── */}
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm">
+          <form onSubmit={handleApply} className="flex flex-wrap items-end gap-3">
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Periode Bulan</label>
               <select
                 value={selectedPeriod}
-                onChange={(e) => handleMonthChange(e.target.value)}
+                onChange={e => handleMonthChange(e.target.value)}
                 className="text-xs rounded-xl border-slate-200 bg-slate-50 p-2 border font-bold text-slate-800"
               >
                 <option value="ALL">SEMUA PERIODE</option>
-                {availableMonths.map((m) => (
-                  <option key={m.key} value={m.key}>{m.label}</option>
-                ))}
+                {availableMonths.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
               </select>
             </div>
-
             <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">
-                Service Advisor
-              </label>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Service Advisor</label>
               <select
                 value={sa}
-                onChange={(e) => setSa(e.target.value)}
+                onChange={e => setSa(e.target.value)}
                 className="text-xs rounded-xl border-slate-200 bg-slate-50 p-2 border font-semibold text-slate-800"
               >
                 <option value="ALL">Semua SA</option>
-                {saList.map((item) => (
-                  <option key={item} value={item}>{item}</option>
-                ))}
+                {saList.map(item => <option key={item} value={item}>{item}</option>)}
               </select>
             </div>
-
             <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">
-                Tanggal Service
-              </label>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Tanggal Service</label>
               <div className="flex items-center space-x-1">
-                <input
-                  type="date"
-                  value={periodeMulai}
-                  onChange={(e) => {
-                    setPeriodeMulai(e.target.value);
-                    setSelectedPeriod('CUSTOM');
-                  }}
+                <input type="date" value={periodeMulai}
+                  onChange={e => { setPeriodeMulai(e.target.value); setSelectedPeriod('CUSTOM'); }}
                   className="text-xs rounded-xl border-slate-200 bg-slate-50 p-1.5 border"
                 />
                 <span className="text-slate-400 text-xs">-</span>
-                <input
-                  type="date"
-                  value={periodeSelesai}
-                  onChange={(e) => {
-                    setPeriodeSelesai(e.target.value);
-                    setSelectedPeriod('CUSTOM');
-                  }}
+                <input type="date" value={periodeSelesai}
+                  onChange={e => { setPeriodeSelesai(e.target.value); setSelectedPeriod('CUSTOM'); }}
                   className="text-xs rounded-xl border-slate-200 bg-slate-50 p-1.5 border"
                 />
               </div>
             </div>
-          </div>
-
-          <div className="flex items-center space-x-2 self-end">
-            <button
-              type="button"
-              onClick={handleResetFilter}
-              className="flex items-center space-x-1 px-3 py-2 text-xs font-semibold text-slate-500 hover:text-slate-700 transition-colors"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Reset</span>
-            </button>
-            <button
-              type="submit"
-              className="px-5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition-all shadow-sm active:scale-95"
-            >
-              Terapkan Filter
-            </button>
-          </div>
-        </form>
-      </div>
-
-      {/* Top 6 Quick Summary Badges (Real Dynamic from Active Data) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <div className="bg-blue-900 text-white p-3.5 rounded-2xl shadow-md">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-blue-200 block">Unit Entry</span>
-          <div className="text-2xl font-black mt-0.5">
-            {(branchMatrixRows.find(r => r.id === 'unit_entry')?.values?.bjm_all || 0).toLocaleString()}
-          </div>
-          <span className="text-[10px] text-blue-200">Total unit masuk</span>
-        </div>
-        <div className="bg-indigo-900 text-white p-3.5 rounded-2xl shadow-md">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-200 block">Follow Up</span>
-          <div className="text-2xl font-black mt-0.5">
-            {(branchMatrixRows.find(r => r.id === 'unit_follow_up')?.values?.bjm_all || 0).toLocaleString()}
-          </div>
-          <span className="text-[10px] text-indigo-200">Unit di-follow up</span>
-        </div>
-        <div className="bg-emerald-900 text-white p-3.5 rounded-2xl shadow-md">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-200 block">Sudah di CALL</span>
-          <div className="text-2xl font-black mt-0.5">
-            {(branchMatrixRows.find(r => r.id === 'unit_sudah_call')?.values?.bjm_all || 0).toLocaleString()}
-          </div>
-          <span className="text-[10px] text-emerald-200">Unit terhubung</span>
-        </div>
-        <div className="bg-teal-900 text-white p-3.5 rounded-2xl shadow-md">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-teal-200 block">FIR Total</span>
-          <div className="text-2xl font-black mt-0.5">
-            {(branchMatrixRows.find(r => r.id === 'fir')?.values?.bjm_all || 0).toLocaleString()}
-          </div>
-          <span className="text-[10px] text-teal-200">Fix It Right (Puas)</span>
-        </div>
-        <div className="bg-rose-950 text-white p-3.5 rounded-2xl shadow-md">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-rose-300 block">NON-FIR Total</span>
-          <div className="text-2xl font-black mt-0.5 text-rose-400">
-            {['non_fir_q1', 'non_fir_q2', 'non_fir_q3', 'non_fir_q4', 'non_fir_q5', 'non_fir_q6'].reduce((acc, k) => acc + (branchMatrixRows.find(r => r.id === k)?.values?.bjm_all || 0), 0)}
-          </div>
-          <span className="text-[10px] text-rose-300">Ada keluhan</span>
-        </div>
-        <div className="bg-amber-950 text-white p-3.5 rounded-2xl shadow-md">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 block">Tidak Terhubung</span>
-          <div className="text-2xl font-black mt-0.5 text-amber-400">
-            {(branchMatrixRows.find(r => r.id === 'td')?.values?.bjm_all || 0) + (branchMatrixRows.find(r => r.id === 'ta')?.values?.bjm_all || 0) + (branchMatrixRows.find(r => r.id === 'tv')?.values?.bjm_all || 0)}
-          </div>
-          <span className="text-[10px] text-amber-300">TD, TA, TV</span>
-        </div>
-      </div>
-
-      {/* FULL BRANCH BREAKDOWN MATRIX TABLE (GAMBAR 2 EXACT REPLICA) */}
-      <div className="bg-white rounded-3xl border-2 border-slate-900 overflow-hidden shadow-2xl">
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-xs text-center border-collapse">
-            
-            {/* Table Header: UNIT ENTRY in Blue, Branch names in RED */}
-            <thead>
-              <tr className="border-b-2 border-slate-900 font-black">
-                <th className="px-4 py-3 text-white bg-blue-600 border-r-2 border-slate-900 text-left uppercase tracking-wider min-w-[180px]">
-                  UNIT ENTRY
-                </th>
-                {branchColumns.map((col) => (
-                  <th
-                    key={col.key}
-                    className={`px-3 py-3 text-white border-r border-slate-800 uppercase tracking-wider whitespace-nowrap min-w-[70px] ${
-                      col.isTotal ? 'bg-red-700 font-black text-sm' : 'bg-red-600 font-bold'
-                    }`}
-                  >
-                    {col.label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-
-            {/* Table Body with Image 2 Styling */}
-            <tbody className="divide-y divide-slate-800 font-medium text-slate-900">
-              {branchMatrixRows.map((row) => {
-                const isBluePrimary = row.type === 'blue_primary';
-                const isSoftBlue = row.type === 'soft_blue';
-                const isSoftRed = row.type === 'soft_red';
-                const isNeutral = row.type === 'neutral';
-                const isRedDanger = row.type === 'red_danger';
-                const isYellowWarning = row.type === 'yellow_warning';
-
-                // Background classes
-                let labelBg = 'bg-white';
-                let cellBg = 'bg-white';
-
-                if (isBluePrimary) {
-                  labelBg = 'bg-blue-500 text-white font-black';
-                  cellBg = 'bg-blue-400/80 font-black text-slate-950';
-                } else if (isSoftBlue) {
-                  labelBg = 'bg-blue-100 text-slate-900 font-bold';
-                  cellBg = 'bg-blue-50/70 font-semibold text-slate-900';
-                } else if (isSoftRed) {
-                  labelBg = 'bg-rose-200 text-rose-950 font-bold';
-                  cellBg = 'bg-rose-100 font-semibold text-rose-950';
-                } else if (isNeutral) {
-                  labelBg = 'bg-slate-200 text-slate-900 font-black';
-                  cellBg = 'bg-slate-50 font-bold text-slate-900';
-                } else if (isRedDanger) {
-                  labelBg = 'bg-red-600 text-white font-bold';
-                  cellBg = 'bg-rose-200/90 font-bold text-slate-900';
-                } else if (isYellowWarning) {
-                  labelBg = 'bg-yellow-400 text-slate-950 font-bold';
-                  cellBg = 'bg-amber-100/80 font-bold text-slate-900';
-                }
-
-                return (
-                  <tr key={row.id} className="hover:opacity-95 transition-opacity">
-                    {/* Row Header Cell */}
-                    <td className={`px-4 py-2.5 text-left border-r-2 border-slate-900 whitespace-nowrap ${labelBg}`}>
-                      {row.label}
-                    </td>
-
-                    {/* Column Data Cells */}
-                    {branchColumns.map((col) => {
-                      const val = row.values[col.key] !== undefined ? row.values[col.key] : 0;
-                      const isHighlighted = val > 0 && (isRedDanger || isYellowWarning || isSoftRed);
-
-                      return (
-                        <td
-                          key={col.key}
-                          className={`px-3 py-2 border-r border-slate-400 ${cellBg} ${
-                            col.isTotal ? 'font-black text-slate-950' : ''
-                          } ${isHighlighted ? 'text-slate-950 font-bold' : ''}`}
-                        >
-                          {val}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                );
-              })}
-            </tbody>
-
-          </table>
-        </div>
-      </div>
-
-      {/* VISUAL ANALYTICS & BAR CHART */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        {/* Branch Performance Comparison Bar Chart (Real Dynamic) */}
-        <div className="lg:col-span-8 bg-white rounded-3xl p-6 border border-slate-200/80 shadow-card flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <div className="flex items-center space-x-2">
-                <BarChart3 className="w-5 h-5 text-toyota-red" />
-                <h3 className="text-sm font-bold text-slate-900">Performa Follow-Up & FIR Per Bengkel / SP</h3>
-              </div>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Perbandingan Real Unit Entry, Unit Follow-Up, dan Hasil Pelanggan Puas (FIR)
-              </p>
-            </div>
-            <span className="text-xs font-bold bg-slate-100 px-3 py-1 rounded-full text-slate-700">
-              {selectedPeriod}
-            </span>
-          </div>
-
-          <div className="h-72 my-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={branchColumns.filter(c => !c.isTotal).map(col => {
-                  const ue = branchMatrixRows.find(r => r.id === 'unit_entry')?.values[col.key] || 0;
-                  const fu = branchMatrixRows.find(r => r.id === 'unit_follow_up')?.values[col.key] || 0;
-                  const fir = branchMatrixRows.find(r => r.id === 'fir')?.values[col.key] || 0;
-                  return {
-                    name: col.label,
-                    UnitEntry: ue,
-                    FollowUp: fu,
-                    FIR: fir
-                  };
-                })}
-                margin={{ top: 20, right: 20, left: -10, bottom: 20 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#475569', fontWeight: 600 }} />
-                <YAxis tick={{ fontSize: 11, fill: '#64748b' }} />
-                <Tooltip
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: '12px' }}
-                />
-                <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-                <Bar dataKey="UnitEntry" name="Unit Entry" fill="#3B82F6" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="FollowUp" name="Follow Up" fill="#6366F1" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="FIR" name="FIR (Puas)" fill="#10B981" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Reason Distribution Donut (Real Dynamic) */}
-        <div className="lg:col-span-4 bg-white rounded-3xl p-6 border border-slate-200/80 shadow-card flex flex-col justify-between">
-          <div>
             <div className="flex items-center space-x-2">
-              <PieIcon className="w-5 h-5 text-amber-500" />
-              <h3 className="text-sm font-bold text-slate-900">Distribusi Alasan Tidak Terhubung</h3>
+              <button type="button" onClick={handleReset}
+                className="flex items-center space-x-1 px-3 py-2 text-xs font-semibold text-slate-500 hover:text-slate-700 transition-colors">
+                <RotateCcw className="w-3.5 h-3.5" /><span>Reset</span>
+              </button>
+              <button type="submit"
+                className="px-5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition-all shadow-sm active:scale-95">
+                Terapkan Filter
+              </button>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Rincian unit yang belum/tidak berhasil dihubungi saat follow-up
-            </p>
+          </form>
+        </div>
+
+        {/* ── Top Summary Cards ── */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: 'Total Unit Masuk', value: totalUnits, color: 'bg-blue-900', sub: 'Semua kategori Q' },
+            { label: 'Sudah di CALL', value: totalTerhubung, color: 'bg-emerald-900', sub: 'Terhubung' },
+            { label: 'FIR Total', value: totalFIR, color: 'bg-teal-900', sub: 'Fix It Right (Puas)' },
+            { label: 'Perlu Di-Follow Up', value: totalPending, color: 'bg-rose-950', sub: 'Belum terhubung' },
+          ].map(c => (
+            <div key={c.label} className={`${c.color} text-white p-4 rounded-2xl shadow-md`}>
+              <span className="text-[10px] font-bold uppercase tracking-wider opacity-70 block">{c.label}</span>
+              <div className="text-3xl font-black mt-1">{isLoading ? '…' : c.value}</div>
+              <span className="text-[10px] opacity-60">{c.sub}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* ── Q1-Q6 Grid + Detail Table ── */}
+        <div className="flex flex-col lg:flex-row gap-5">
+          {/* Left: Q Cards */}
+          <div className="lg:w-80 shrink-0">
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-100">
+                <h2 className="text-sm font-black text-slate-900">Kategori Non FIR</h2>
+                <p className="text-[11px] text-slate-500 mt-0.5">Klik kategori untuk melihat detail unit</p>
+              </div>
+              <div className="p-3 space-y-2">
+                {qStats.map(q => {
+                  const isActive = activeQ === q.key;
+                  return (
+                    <button
+                      key={q.key}
+                      onClick={() => {
+                        setActiveQ(isActive ? null : q.key);
+                      }}
+                      className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl border-2 transition-all duration-200 text-left ${
+                        isActive
+                          ? `${q.bg} border-transparent text-white shadow-lg scale-[1.01]`
+                          : `bg-white ${q.light} hover:scale-[1.01] hover:shadow-md ${q.text}`
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-base ${
+                          isActive ? 'bg-white/20 text-white' : `${q.bg} text-white`
+                        }`}>
+                          {q.key}
+                        </div>
+                        <div>
+                          <div className={`text-xs font-black ${isActive ? 'text-white' : q.text}`}>{q.desc}</div>
+                          <div className={`text-[10px] mt-0.5 ${isActive ? 'text-white/70' : 'text-slate-400'}`}>
+                            {q.count} Unit
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className={`text-xl font-black ${isActive ? 'text-white' : q.text}`}>{q.count}</span>
+                        <ChevronRight className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
-          {(() => {
-            const tdVal = branchMatrixRows.find(r => r.id === 'td')?.values?.bjm_all || 0;
-            const taVal = branchMatrixRows.find(r => r.id === 'ta')?.values?.bjm_all || 0;
-            const tvVal = branchMatrixRows.find(r => r.id === 'tv')?.values?.bjm_all || 0;
-            const totalTidak = tdVal + taVal + tvVal || 1;
-
-            return (
-              <div className="my-4 flex flex-col items-center justify-center">
-                <div className="h-44 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={[
-                          { name: 'Tidak Diangkat (TD)', value: tdVal, color: '#F59E0B' },
-                          { name: 'No Tidak Aktif (TA)', value: taVal, color: '#EF4444' },
-                          { name: 'Tidak Valid (TV)', value: tvVal, color: '#8B5CF6' },
-                        ]}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={45}
-                        outerRadius={70}
-                        paddingAngle={3}
-                        dataKey="value"
-                      >
-                        <Cell fill="#F59E0B" />
-                        <Cell fill="#EF4444" />
-                        <Cell fill="#8B5CF6" />
-                      </Pie>
-                      <Tooltip
-                        formatter={(val, name) => [`${val} Unit (${((val/totalTidak)*100).toFixed(1)}%)`, name]}
-                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: '12px' }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
+          {/* Right: Detail Table or Placeholder */}
+          <div className="flex-1 min-w-0">
+            {!activeQ ? (
+              <div className="h-full min-h-[400px] bg-white rounded-3xl border border-slate-200 flex flex-col items-center justify-center text-center p-10 shadow-sm">
+                <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
+                  <Filter className="w-8 h-8 text-slate-300" />
                 </div>
-
-                <div className="w-full space-y-2 pt-2 border-t border-slate-100 text-xs font-semibold">
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center space-x-1.5 text-slate-600">
-                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-                      <span>Tidak Diangkat (TD)</span>
-                    </span>
-                    <span className="font-bold text-slate-900">{tdVal} ({((tdVal/totalTidak)*100).toFixed(1)}%)</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center space-x-1.5 text-slate-600">
-                      <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span>
-                      <span>No Tidak Aktif (TA)</span>
-                    </span>
-                    <span className="font-bold text-slate-900">{taVal} ({((taVal/totalTidak)*100).toFixed(1)}%)</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center space-x-1.5 text-slate-600">
-                      <span className="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
-                      <span>Tidak Valid (TV)</span>
-                    </span>
-                    <span className="font-bold text-slate-900">{tvVal} ({((tvVal/totalTidak)*100).toFixed(1)}%)</span>
-                  </div>
-                </div>
+                <h3 className="text-base font-black text-slate-700">Pilih Kategori Q</h3>
+                <p className="text-sm text-slate-400 mt-2 max-w-sm">
+                  Klik salah satu kategori Q1–Q6 di sebelah kiri untuk melihat daftar unit beserta alur proses recovery-nya.
+                </p>
               </div>
-            );
-          })()}
+            ) : (
+              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                {/* Table Header */}
+                {(() => {
+                  const q = qStats.find(q => q.key === activeQ);
+                  return (
+                    <>
+                      <div className={`bg-gradient-to-r ${q.color} px-5 py-4 text-white flex items-center justify-between`}>
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs font-bold bg-white/20 px-2 py-0.5 rounded-full uppercase">{q.key}</span>
+                            <span className="text-sm font-bold opacity-90">{q.desc}</span>
+                          </div>
+                          <p className="text-2xl font-black mt-1">{q.count} Unit</p>
+                          <p className="text-xs opacity-70 mt-0.5">Klik baris untuk detail customer & progres recovery</p>
+                        </div>
+                        <button
+                          onClick={() => setDrilldownQ(activeQ)}
+                          className="flex items-center space-x-1.5 px-3 py-2 bg-white/20 hover:bg-white/30 rounded-xl text-xs font-bold transition-colors"
+                        >
+                          <span>Tampilkan Semua</span>
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* 5-column process header */}
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs text-left border-collapse whitespace-nowrap">
+                          <thead>
+                            <tr className={`${q.bg} text-white text-[10px] uppercase tracking-wider`}>
+                              <th className="px-3 py-2.5 text-center font-black w-10">No</th>
+                              <th className="px-3 py-2.5 font-black">No. Polisi / Unit</th>
+                              <th className="px-3 py-2.5 font-black">Nama Customer</th>
+                              <th className="px-3 py-2.5 font-black text-center">Recovery</th>
+                              <th className="px-3 py-2.5 font-black text-center">Step Intern Discuss</th>
+                              <th className="px-3 py-2.5 font-black text-center">List Confirm</th>
+                              <th className="px-3 py-2.5 font-black text-center">Recovery Action</th>
+                              <th className="px-3 py-2.5 font-black text-center">Tindak Lanjut</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
+                            {isLoading ? (
+                              <tr><td colSpan="8" className="text-center py-10 text-slate-400">Memuat data...</td></tr>
+                            ) : q.records.length === 0 ? (
+                              <tr><td colSpan="8" className="text-center py-10 text-slate-400 font-semibold">
+                                Tidak ada unit dalam kategori {q.key}
+                              </td></tr>
+                            ) : q.records.slice(0, 10).map((r, idx) => {
+                              const steps = deriveSteps(r);
+                              return (
+                                <tr
+                                  key={r.id || idx}
+                                  className="hover:bg-slate-50 cursor-pointer transition-colors"
+                                  onClick={() => setDrilldownQ(activeQ)}
+                                >
+                                  <td className="px-3 py-2 text-center font-bold text-slate-400">{idx + 1}</td>
+                                  <td className="px-3 py-2">
+                                    <div className="font-black text-blue-700">{r.no_polisi || '-'}</div>
+                                    <div className="text-[10px] text-slate-400">{r.model || ''}</div>
+                                  </td>
+                                  <td className="px-3 py-2 font-semibold text-slate-900 max-w-[160px] truncate">
+                                    {r.nama_customer || '-'}
+                                  </td>
+                                  <td className="px-3 py-2 text-center"><StepBadge status={steps.recovery} /></td>
+                                  <td className="px-3 py-2 text-center"><StepBadge status={steps.stepIntern} /></td>
+                                  <td className="px-3 py-2 text-center"><StepBadge status={steps.listConfirm} /></td>
+                                  <td className="px-3 py-2 text-center"><StepBadge status={steps.recoveryAction} /></td>
+                                  <td className="px-3 py-2 text-center"><StepBadge status={steps.tindakLanjut} /></td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {q.records.length > 10 && (
+                        <div className="px-5 py-3 border-t border-slate-100 text-center">
+                          <button
+                            onClick={() => setDrilldownQ(activeQ)}
+                            className={`text-xs font-bold ${q.text} hover:underline`}
+                          >
+                            Tampilkan semua {q.records.length} unit →
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Q Summary Grid (Bottom) ── */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {qStats.map(q => (
+            <button
+              key={q.key}
+              onClick={() => { setActiveQ(q.key); setDrilldownQ(q.key); }}
+              className={`group relative bg-gradient-to-br ${q.color} text-white p-4 rounded-2xl shadow-md hover:shadow-xl hover:scale-[1.03] transition-all duration-200 active:scale-100 text-left`}
+            >
+              <span className="text-[10px] font-bold uppercase tracking-wider opacity-80 block">{q.key}</span>
+              <div className="text-3xl font-black mt-1">{q.count}</div>
+              <span className="text-[10px] opacity-70 leading-tight mt-1 block">{q.desc}</span>
+              <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 opacity-40 group-hover:opacity-80 group-hover:translate-x-0.5 transition-all" />
+            </button>
+          ))}
         </div>
 
       </div>
-
-    </div>
+    </>
   );
 }

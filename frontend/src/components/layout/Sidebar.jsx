@@ -2,12 +2,9 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { 
   LayoutDashboard, 
-  TableProperties, 
-  PlusCircle, 
   BarChart3, 
   Users, 
   LogOut, 
-  Car, 
   ChevronRight,
   ShieldCheck,
   PhoneCall
@@ -19,10 +16,8 @@ export default function Sidebar({ isOpen, onClose }) {
 
   const navItems = [
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/data-rtj', label: 'Data RTJ', icon: TableProperties },
     { to: '/follow-up', label: 'Follow-Up', icon: PhoneCall },
     { to: '/statistik', label: 'Statistik', icon: BarChart3 },
-    { to: '/input-rtj', label: 'Input RTJ', icon: PlusCircle },
     ...(isAdmin ? [{ to: '/user', label: 'Kelola User', icon: Users }] : []),
   ];
 
@@ -130,7 +125,7 @@ export default function Sidebar({ isOpen, onClose }) {
           
           <div className="mt-3 text-center">
             <p className="text-[10px] text-slate-500 font-medium">
-              RTJ Monitoring System v1.0
+              RTJ Monitoring System v2.0
             </p>
           </div>
         </div>

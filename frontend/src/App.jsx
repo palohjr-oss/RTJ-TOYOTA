@@ -5,9 +5,6 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import MainLayout from './components/layout/MainLayout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
-import DataRTJ from './pages/DataRTJ';
-import DetailRTJ from './pages/DetailRTJ';
-import InputRTJ from './pages/InputRTJ';
 import FollowUp from './pages/FollowUp';
 import Statistik from './pages/Statistik';
 import UserManagement from './pages/UserManagement';
@@ -77,10 +74,7 @@ export default function App() {
             >
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
-              <Route path="data-rtj" element={<DataRTJ />} />
-              <Route path="data-rtj/:id" element={<DetailRTJ />} />
               <Route path="follow-up" element={<FollowUp />} />
-              <Route path="input-rtj" element={<InputRTJ />} />
               <Route path="statistik" element={<Statistik />} />
               <Route
                 path="user"

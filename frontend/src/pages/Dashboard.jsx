@@ -8,8 +8,6 @@ import {
   AlertTriangle, 
   Filter, 
   RotateCcw, 
-  PlusCircle, 
-  UploadCloud, 
   Layers,
   ChevronRight,
   TrendingUp,
@@ -244,14 +242,12 @@ export default function Dashboard() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center space-x-2">
-              <span className="px-3 py-1 rounded-full bg-toyota-red text-white text-[11px] font-black uppercase tracking-wider shadow-sm">
-                ALL GR BJM & SP
-              </span>
-              <span className="text-xs text-slate-400 font-medium">Wira Toyota Banjarmasin</span>
+              <span className="w-2.5 h-2.5 rounded-full bg-toyota-red animate-pulse"></span>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Wira Toyota Banjarmasin</span>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-black mt-2 tracking-tight">
-              ALL GR BJM ONLY & SERVICE POINT
-            </h2>
+            <h1 className="text-2xl sm:text-3xl font-black mt-2 tracking-tight">
+              PSF Uwira BJM ONLY, SERVICE POINT & TMS
+            </h1>
             <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-xl">
               Hasil dan Monitoring Dari Follow-Up Service Berkala Unit Pelanggan Secara Terstruktur.
             </p>
@@ -263,7 +259,7 @@ export default function Dashboard() {
               className="flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold border border-slate-700 transition-all shadow-md active:scale-95"
             >
               <PhoneCall className="w-4 h-4 text-emerald-400" />
-              <span>Tabel Follow-Up</span>
+              <span>Data Follow-Up</span>
             </Link>
 
             <Link
@@ -271,15 +267,7 @@ export default function Dashboard() {
               className="flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold border border-slate-700 transition-all shadow-md active:scale-95"
             >
               <FileSpreadsheet className="w-4 h-4 text-blue-400" />
-              <span>Matriks Cabang</span>
-            </Link>
-
-            <Link
-              to="/input-rtj"
-              className="flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-toyota-red hover:bg-toyota-darkRed text-white text-xs font-bold shadow-toyota transition-all active:scale-95"
-            >
-              <PlusCircle className="w-4 h-4" />
-              <span>Input RTJ Baru</span>
+              <span>Statistik RTJ</span>
             </Link>
           </div>
         </div>
