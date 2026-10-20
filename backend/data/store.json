@@ -866,5 +866,109 @@
       "created_at": "2026-09-12T07:01:44.109Z"
     }
   ],
-  "rtj_initialized": true
+  "rtj_initialized": true,
+  "notifications": [
+    {
+      "id": "notif-init-1",
+      "type": "update",
+      "title": "Follow-Up Selesai (Completed)",
+      "message": "CARINA ZIVA NYOSAPUTRA (L1833PJ) - AGYA [Q1]",
+      "details": {
+        "id": "0b8430fe-e558-47c8-adc3-82ec282134a2",
+        "no_wo": "WO/2026/00025",
+        "nama_customer": "CARINA ZIVA NYOSAPUTRA",
+        "no_polisi": "L1833PJ",
+        "kategori_q": "Q1",
+        "status_rtj": "Completed"
+      },
+      "created_by": "SUGIANTO",
+      "created_at": "2026-09-12T07:01:44.109Z",
+      "read_by": []
+    },
+    {
+      "id": "notif-init-2",
+      "type": "update",
+      "title": "Follow-Up Selesai (Completed)",
+      "message": "ALUS SALIM (DA1121HP) - RAIZE [Q4]",
+      "details": {
+        "id": "b401549d-974a-4257-b5c3-86d185234d6a",
+        "no_wo": "WO/2026/00024",
+        "nama_customer": "ALUS SALIM",
+        "no_polisi": "DA1121HP",
+        "kategori_q": "Q4",
+        "status_rtj": "Completed"
+      },
+      "created_by": "SUGIANTO",
+      "created_at": "2026-09-12T07:01:44.109Z",
+      "read_by": []
+    },
+    {
+      "id": "notif-init-3",
+      "type": "update",
+      "title": "Follow-Up Selesai (Completed)",
+      "message": "ENDAH PRIHATIN (DA1111YSA) - INNOVA ZENIX [Q1]",
+      "details": {
+        "id": "9b155403-5b38-4f13-a85a-b7ca8cb40971",
+        "no_wo": "WO/2026/00023",
+        "nama_customer": "ENDAH PRIHATIN",
+        "no_polisi": "DA1111YSA",
+        "kategori_q": "Q1",
+        "status_rtj": "Completed"
+      },
+      "created_by": "FAJAR",
+      "created_at": "2026-09-12T07:01:44.109Z",
+      "read_by": []
+    },
+    {
+      "id": "notif-init-4",
+      "type": "update",
+      "title": "Follow-Up Selesai (Completed)",
+      "message": "SAPTIADI (DA1789TK) - AVANZA VVTI [Q3]",
+      "details": {
+        "id": "dd9362e1-8129-48fb-a428-be58f966b809",
+        "no_wo": "WO/2026/00022",
+        "nama_customer": "SAPTIADI",
+        "no_polisi": "DA1789TK",
+        "kategori_q": "Q3",
+        "status_rtj": "Completed"
+      },
+      "created_by": "RUDI",
+      "created_at": "2026-09-12T07:01:44.109Z",
+      "read_by": []
+    },
+    {
+      "id": "notif-init-5",
+      "type": "update",
+      "title": "Follow-Up Selesai (Completed)",
+      "message": "MARSENI (KH1266BK) - NEW VELOZ [Q4]",
+      "details": {
+        "id": "df8b307b-f9e3-480c-8fe3-d6cadf6bdf31",
+        "no_wo": "WO/2026/00021",
+        "nama_customer": "MARSENI",
+        "no_polisi": "KH1266BK",
+        "kategori_q": "Q4",
+        "status_rtj": "Completed"
+      },
+      "created_by": "WAYAN",
+      "created_at": "2026-09-12T07:01:44.109Z",
+      "read_by": []
+    },
+    {
+      "id": "notif-init-6",
+      "type": "update",
+      "title": "Follow-Up Selesai (Completed)",
+      "message": "TRI SETIAWAN (DA1360AW) - RUSH [Q5]",
+      "details": {
+        "id": "aa2c0bd6-714c-4ae2-8582-cc55e4970593",
+        "no_wo": "WO/2026/00020",
+        "nama_customer": "TRI SETIAWAN",
+        "no_polisi": "DA1360AW",
+        "kategori_q": "Q5",
+        "status_rtj": "Completed"
+      },
+      "created_by": "SUGIANTO",
+      "created_at": "2026-09-12T07:01:44.109Z",
+      "read_by": []
+    }
+  ]
 }

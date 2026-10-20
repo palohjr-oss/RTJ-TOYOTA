@@ -1,6 +1,5 @@
 import fs from 'fs';
 import path from 'path';
-import os from 'os';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
 import bcrypt from 'bcryptjs';
@@ -18,22 +17,12 @@ if (!process.env.SUPABASE_URL) {
 if (!process.env.SUPABASE_URL) {
   dotenv.config({ path: path.join(__dirname, '../../.env') });
 }
+const DATA_DIR = path.join(__dirname, '../../data');
+const STORE_PATH = path.join(DATA_DIR, 'store.json');
 
-// In Vercel serverless environment, the lambda filesystem is read-only.
-// We use os.tmpdir() for persistent read/write within the lambda instance.
-const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
-const BUNDLED_DATA_DIR = path.join(__dirname, '../../data');
-const BUNDLED_STORE_PATH = path.join(BUNDLED_DATA_DIR, 'store.json');
-
-const DATA_DIR = isServerless ? path.join(os.tmpdir(), 'rtj_data') : BUNDLED_DATA_DIR;
-const STORE_PATH = isServerless ? path.join(DATA_DIR, 'store.json') : BUNDLED_STORE_PATH;
-
-try {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-} catch (err) {
-  console.warn('[Database] Could not create DATA_DIR:', err.message);
+// Ensure data dir exists
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
 // Check Supabase config
@@ -724,46 +713,24 @@ const initialHistory = [
 
 // Helper to load store
 function loadStore() {
-  if (global.__memory_store) {
-    return global.__memory_store;
-  }
-
-  // If in serverless and /tmp store doesn't exist yet, seed it from bundled file
-  if (isServerless && !fs.existsSync(STORE_PATH) && fs.existsSync(BUNDLED_STORE_PATH)) {
-    try {
-      const bundledRaw = fs.readFileSync(BUNDLED_STORE_PATH, 'utf-8');
-      fs.writeFileSync(STORE_PATH, bundledRaw, 'utf-8');
-    } catch (e) {
-      console.warn('[Store] Could not seed /tmp store from bundled file:', e.message);
-    }
-  }
-
-  const readPath = fs.existsSync(STORE_PATH) ? STORE_PATH : (fs.existsSync(BUNDLED_STORE_PATH) ? BUNDLED_STORE_PATH : null);
-
-  if (!readPath) {
+  if (!fs.existsSync(STORE_PATH)) {
     const defaultData = {
       users: initialUsers,
       rtj: initialRTJ,
       history: initialHistory,
-      rtj_initialized: true
     };
-    try {
-      fs.writeFileSync(STORE_PATH, JSON.stringify(defaultData, null, 2), 'utf-8');
-    } catch (e) {}
-    global.__memory_store = defaultData;
+    fs.writeFileSync(STORE_PATH, JSON.stringify(defaultData, null, 2), 'utf-8');
     return defaultData;
   }
-
   try {
-    const raw = fs.readFileSync(readPath, 'utf-8');
+    const raw = fs.readFileSync(STORE_PATH, 'utf-8');
     const parsed = JSON.parse(raw);
-    
+
     let updated = false;
 
     // Ensure required accounts exist
-    const hendri = parsed.users?.find(u => u.username?.toUpperCase() === 'HENDRI');
+    const hendri = parsed.users?.find(u => u.username.toUpperCase() === 'HENDRI');
     if (!hendri) {
-      parsed.users = parsed.users || [];
       parsed.users.push(initialUsers[0]);
       updated = true;
     } else if (!bcrypt.compareSync('BISMILLAH', hendri.password_hash)) {
@@ -771,9 +738,8 @@ function loadStore() {
       updated = true;
     }
 
-    const debby = parsed.users?.find(u => u.username?.toUpperCase() === 'DEBBY');
+    const debby = parsed.users?.find(u => u.username.toUpperCase() === 'DEBBY');
     if (!debby) {
-      parsed.users = parsed.users || [];
       parsed.users.push(initialUsers[1]);
       updated = true;
     } else if (!bcrypt.compareSync('1', debby.password_hash)) {
@@ -781,6 +747,8 @@ function loadStore() {
       updated = true;
     }
 
+    // Seed initial RTJ data hanya jika store belum pernah diinisialisasi
+    // Flag 'rtj_initialized' mencegah data dimuat ulang setelah user menghapus semua
     if (!parsed.rtj_initialized) {
       parsed.rtj = parsed.rtj || initialRTJ;
       parsed.history = parsed.history || initialHistory;
@@ -788,13 +756,35 @@ function loadStore() {
       updated = true;
     }
 
-    if (updated) {
-      try {
-        fs.writeFileSync(STORE_PATH, JSON.stringify(parsed, null, 2), 'utf-8');
-      } catch (e) {}
+    if (!parsed.notifications || !Array.isArray(parsed.notifications) || parsed.notifications.length === 0) {
+      parsed.notifications = [];
+      const recentRTJ = (parsed.rtj || []).slice(0, 6);
+      recentRTJ.forEach((item, idx) => {
+        parsed.notifications.push({
+          id: `notif-init-${idx + 1}`,
+          type: item.status_rtj === 'Completed' ? 'update' : 'create',
+          title: item.status_rtj === 'Completed' ? 'Follow-Up Selesai (Completed)' : 'Data RTJ Tersedia',
+          message: `${item.nama_customer || 'Pelanggan'} (${item.no_polisi || '-'}) - ${item.model || 'Toyota'} [${item.kategori_q || 'Q1'}]`,
+          details: {
+            id: item.id,
+            no_wo: item.no_wo,
+            nama_customer: item.nama_customer,
+            no_polisi: item.no_polisi,
+            kategori_q: item.kategori_q,
+            status_rtj: item.status_rtj,
+          },
+          created_by: item.sa || 'System',
+          created_at: item.created_at || new Date(Date.now() - idx * 3600000).toISOString(),
+          read_by: []
+        });
+      });
+      updated = true;
     }
 
-    global.__memory_store = parsed;
+    if (updated) {
+      fs.writeFileSync(STORE_PATH, JSON.stringify(parsed, null, 2), 'utf-8');
+    }
+
     return parsed;
   } catch (err) {
     console.error('[Store] Corrupt store file, re-initializing...', err);
@@ -802,27 +792,15 @@ function loadStore() {
       users: initialUsers,
       rtj: initialRTJ,
       history: initialHistory,
-      rtj_initialized: true
     };
-    try {
-      fs.writeFileSync(STORE_PATH, JSON.stringify(defaultData, null, 2), 'utf-8');
-    } catch (e) {}
-    global.__memory_store = defaultData;
+    fs.writeFileSync(STORE_PATH, JSON.stringify(defaultData, null, 2), 'utf-8');
     return defaultData;
   }
 }
 
 // Helper to save store
 function saveStore(data) {
-  global.__memory_store = data;
-  try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-    fs.writeFileSync(STORE_PATH, JSON.stringify(data, null, 2), 'utf-8');
-  } catch (err) {
-    console.warn('[Store] Disk sync warning, in-memory updated:', err.message);
-  }
+  fs.writeFileSync(STORE_PATH, JSON.stringify(data, null, 2), 'utf-8');
 }
 
 export const db = {
@@ -998,7 +976,7 @@ export const db = {
     // Search query
     if (search) {
       const q = search.toLowerCase().trim();
-      records = records.filter(r => 
+      records = records.filter(r =>
         (r.nama_customer && r.nama_customer.toLowerCase().includes(q)) ||
         (r.no_polisi && r.no_polisi.toLowerCase().includes(q)) ||
         (r.no_wo && r.no_wo.toLowerCase().includes(q)) ||
@@ -1057,11 +1035,11 @@ export const db = {
     }
 
     const store = loadStore();
-    const rtj = store.rtj.find(r => String(r.id) === String(id));
+    const rtj = store.rtj.find(r => r.id === id);
     if (!rtj) return null;
 
-    const history = (store.history || [])
-      .filter(h => String(h.rtj_id) === String(id))
+    const history = store.history
+      .filter(h => h.rtj_id === id)
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     return { ...rtj, history };
@@ -1109,6 +1087,27 @@ export const db = {
       created_at: new Date().toISOString()
     });
 
+    // Real-time Notification
+    store.notifications = store.notifications || [];
+    store.notifications.unshift({
+      id: uuidv4(),
+      type: 'create',
+      title: 'Data RTJ Baru Ditambahkan',
+      message: `${newRTJ.nama_customer} (${newRTJ.no_polisi}) - ${newRTJ.model} [Kategori: ${newRTJ.kategori_q}]`,
+      details: {
+        id: newId,
+        no_wo: newRTJ.no_wo,
+        nama_customer: newRTJ.nama_customer,
+        no_polisi: newRTJ.no_polisi,
+        kategori_q: newRTJ.kategori_q,
+        status_rtj: newRTJ.status_rtj,
+      },
+      created_by: user?.nama || user?.username || 'System',
+      created_at: new Date().toISOString(),
+      read_by: user?.id ? [user.id] : []
+    });
+    if (store.notifications.length > 100) store.notifications.length = 100;
+
     saveStore(store);
 
     if (supabase) {
@@ -1124,7 +1123,7 @@ export const db = {
 
   async updateRTJ(id, data, user) {
     const store = loadStore();
-    const index = store.rtj.findIndex(r => String(r.id) === String(id));
+    const index = store.rtj.findIndex(r => r.id === id);
     if (index === -1) return null;
 
     const oldRecord = { ...store.rtj[index] };
@@ -1144,7 +1143,6 @@ export const db = {
     store.rtj[index] = updatedRTJ;
 
     if (oldStatus !== newStatus || data.catatan_perubahan) {
-      store.history = store.history || [];
       store.history.push({
         id: uuidv4(),
         rtj_id: id,
@@ -1156,6 +1154,45 @@ export const db = {
         created_at: new Date().toISOString()
       });
     }
+
+    // Real-time Notification for Update
+    let notifTitle = 'Data RTJ Diperbarui';
+    let notifType = 'update';
+    let notifMsg = `${updatedRTJ.nama_customer} (${updatedRTJ.no_polisi}) diperbarui oleh ${user?.nama || 'Petugas'}`;
+
+    if (data.recovery_step_1 || data.recovery_step_2 || data.recovery_step_3 || data.recovery_step_4 || data.recovery_step_5) {
+      notifType = 'recovery';
+      notifTitle = 'Progres Recovery Diperbarui';
+      notifMsg = `${updatedRTJ.nama_customer} (${updatedRTJ.no_polisi}) - Tahapan Recovery telah diperbarui`;
+    } else if (data.hasil_idi || data.improvement) {
+      notifType = 'update';
+      notifTitle = 'Hasil IDI & Improvement Diperbarui';
+      notifMsg = `${updatedRTJ.nama_customer} (${updatedRTJ.no_polisi}) - Hasil IDI / Improvement telah ditambahkan`;
+    } else if (oldStatus !== newStatus) {
+      notifType = 'update';
+      notifTitle = 'Status Follow-Up Diperbarui';
+      notifMsg = `${updatedRTJ.nama_customer} (${updatedRTJ.no_polisi}) - Status: ${oldStatus} ➔ ${newStatus}`;
+    }
+
+    store.notifications = store.notifications || [];
+    store.notifications.unshift({
+      id: uuidv4(),
+      type: notifType,
+      title: notifTitle,
+      message: notifMsg,
+      details: {
+        id: updatedRTJ.id,
+        no_wo: updatedRTJ.no_wo,
+        nama_customer: updatedRTJ.nama_customer,
+        no_polisi: updatedRTJ.no_polisi,
+        kategori_q: updatedRTJ.kategori_q,
+        status_rtj: updatedRTJ.status_rtj,
+      },
+      created_by: user?.nama || user?.username || 'System',
+      created_at: new Date().toISOString(),
+      read_by: user?.id ? [user.id] : []
+    });
+    if (store.notifications.length > 100) store.notifications.length = 100;
 
     saveStore(store);
 
@@ -1173,8 +1210,24 @@ export const db = {
   async deleteRTJ(id) {
     const store = loadStore();
     const beforeCount = store.rtj.length;
+    const target = store.rtj.find(r => r.id === id);
     store.rtj = store.rtj.filter(r => r.id !== id);
     store.history = store.history.filter(h => h.rtj_id !== id);
+
+    if (target) {
+      store.notifications = store.notifications || [];
+      store.notifications.unshift({
+        id: uuidv4(),
+        type: 'delete',
+        title: 'Data RTJ Dihapus',
+        message: `Data ${target.nama_customer || ''} (${target.no_polisi || ''}) telah dihapus dari sistem`,
+        details: { id, nama_customer: target.nama_customer, no_polisi: target.no_polisi },
+        created_by: 'System',
+        created_at: new Date().toISOString(),
+        read_by: []
+      });
+      if (store.notifications.length > 100) store.notifications.length = 100;
+    }
     saveStore(store);
 
     if (supabase) {
@@ -1252,6 +1305,25 @@ export const db = {
       });
 
       createdItems.push(record);
+    }
+
+    if (createdItems.length > 0) {
+      store.notifications = store.notifications || [];
+      const sampleNames = createdItems.slice(0, 3).map(c => `${c.nama_customer || 'Unit'} (${c.no_polisi || '-'})`).join(', ');
+      store.notifications.unshift({
+        id: uuidv4(),
+        type: 'import',
+        title: 'Import Data RTJ Berhasil',
+        message: `${createdItems.length} unit data RTJ baru berhasil diimpor oleh ${user?.nama || 'System'}${sampleNames ? ` (Contoh: ${sampleNames}...)` : ''}`,
+        details: {
+          count: createdItems.length,
+          sample: sampleNames
+        },
+        created_by: user?.nama || user?.username || 'System',
+        created_at: new Date().toISOString(),
+        read_by: user?.id ? [user.id] : []
+      });
+      if (store.notifications.length > 100) store.notifications.length = 100;
     }
 
     saveStore(store);
@@ -1545,7 +1617,7 @@ export const db = {
     // Compute dynamic row values across all branch columns from real data
     const computeRow = (filterFn) => {
       const values = { bjm_all: 0, bjm_saja: 0, sp_km2: 0, sp_plh: 0, sp_btl: 0, sp_ktb: 0, sp_mrb: 0, bkt_1: 0, bkt_2: 0, bkt_3: 0, bkt_4: 0, bkt_5: 0, bkt_6: 0 };
-      
+
       for (const r of records) {
         if (filterFn(r)) {
           const key = getBranchKey(r);
@@ -1750,5 +1822,54 @@ export const db = {
         statusList: ['Scheduled', 'Completed', 'Pending', 'Rescheduled']
       }
     };
+  },
+
+  async getNotifications({ user, limit = 40 } = {}) {
+    const store = loadStore();
+    const notifs = [...(store.notifications || [])]
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      .slice(0, Number(limit));
+
+    const userId = user?.id || user?.username;
+    const unreadCount = (store.notifications || []).filter(n => {
+      if (!userId) return true;
+      return !(n.read_by || []).includes(userId);
+    }).length;
+
+    return {
+      notifications: notifs.map(n => ({
+        ...n,
+        is_read: userId ? (n.read_by || []).includes(userId) : false
+      })),
+      unread_count: unreadCount,
+      total: (store.notifications || []).length
+    };
+  },
+
+  async markNotificationAsRead({ id, all = false, user } = {}) {
+    const store = loadStore();
+    const userId = user?.id || user?.username;
+    if (!userId) return false;
+
+    store.notifications = store.notifications || [];
+    if (all) {
+      store.notifications.forEach(n => {
+        n.read_by = n.read_by || [];
+        if (!n.read_by.includes(userId)) {
+          n.read_by.push(userId);
+        }
+      });
+    } else if (id) {
+      const target = store.notifications.find(n => n.id === id);
+      if (target) {
+        target.read_by = target.read_by || [];
+        if (!target.read_by.includes(userId)) {
+          target.read_by.push(userId);
+        }
+      }
+    }
+    saveStore(store);
+    return true;
   }
 };
+

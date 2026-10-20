@@ -1,6 +1,7 @@
 import React from 'react';
-import { Menu, Calendar, ShieldCheck, UserCircle2, Bell, Sparkles } from 'lucide-react';
+import { Menu, Calendar, ShieldCheck, UserCircle2, Sparkles } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import NotificationDropdown from '../common/NotificationDropdown';
 
 export default function Navbar({ onMenuToggle }) {
   const { user } = useAuth();
@@ -38,8 +39,11 @@ export default function Navbar({ onMenuToggle }) {
           </div>
         </div>
 
-        {/* Right Side: Profile & Role Badge */}
+        {/* Right Side: Notifications, Profile & Role Badge */}
         <div className="flex items-center space-x-3">
+          {/* Real-time Notification Bell */}
+          <NotificationDropdown />
+
           <div className="flex items-center space-x-3 pl-3 py-1 border-l border-slate-200">
             <div className="text-right hidden sm:block">
               <p className="text-xs font-extrabold text-slate-900 leading-tight">

@@ -8,6 +8,7 @@ import * as authController from './controllers/authController.js';
 import * as rtjController from './controllers/rtjController.js';
 import * as dashboardController from './controllers/dashboardController.js';
 import * as userController from './controllers/userController.js';
+import * as notificationController from './controllers/notificationController.js';
 
 dotenv.config();
 
@@ -83,6 +84,12 @@ app.get('/api/users', requireAuth, requireAdmin, userController.getUsers);
 app.post('/api/users', requireAuth, requireAdmin, userController.createUser);
 app.put('/api/users/:id', requireAuth, requireAdmin, userController.updateUser);
 app.delete('/api/users/:id', requireAuth, requireAdmin, userController.deleteUser);
+
+// ==========================================
+// NOTIFICATION ROUTES
+// ==========================================
+app.get('/api/notifications', requireAuth, notificationController.getNotifications);
+app.post('/api/notifications/read', requireAuth, notificationController.markAsRead);
 
 // Global Error Handler
 app.use((err, req, res, next) => {
