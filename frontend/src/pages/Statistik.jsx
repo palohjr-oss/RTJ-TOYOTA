@@ -380,10 +380,10 @@ export default function Statistik() {
     setActiveQ('Q1');
   };
 
-  // ── Compute per-Q counts from Follow-Up records ───────────────────────────
+  // ── Compute per-Q counts from Follow-Up records (berdasarkan kategori_q) ──
   const qStats = useMemo(() => {
     return Q_CATEGORIES.map(cat => {
-      const recs = allRecords.filter(r => (r.kategori_q || 'Q1') === cat.key);
+      const recs = allRecords.filter(r => r.kategori_q === cat.key);
       return { ...cat, count: recs.length, records: recs };
     });
   }, [allRecords]);
@@ -398,89 +398,100 @@ export default function Statistik() {
   const firRatio = totalUnits > 0 ? Math.round((totalFIR / totalUnits) * 100) : 0;
 
   // ── 3 Questions Breakdown (Rincian Persentase Fix It Right - Gambar 2) ─────
-  // 1. Kualitas Servis (Q1)
-  const q1Recs = allRecords.filter(r => (r.kategori_q || 'Q1') === 'Q1');
+  // Data per-Q sesuai field kategori_q dari Follow-Up
+  const q1Recs = allRecords.filter(r => r.kategori_q === 'Q1');
   const q1TidakPuas = q1Recs.length;
   const q1Puas = Math.max(0, totalUnits - q1TidakPuas);
   const q1PuasPct = totalUnits > 0 ? Math.round((q1Puas / totalUnits) * 100) : 0;
   const q1TidakPuasPct = totalUnits > 0 ? Math.round((q1TidakPuas / totalUnits) * 100) : 0;
 
-  // 2. Ketepatan Janji Pengiriman Servis (Q2)
   const q2Recs = allRecords.filter(r => r.kategori_q === 'Q2');
   const q2Tidak = q2Recs.length;
   const q2Ya = Math.max(0, totalUnits - q2Tidak);
   const q2YaPct = totalUnits > 0 ? Math.round((q2Ya / totalUnits) * 100) : 0;
   const q2TidakPct = totalUnits > 0 ? Math.round((q2Tidak / totalUnits) * 100) : 0;
 
-  // 3. Lama waktu servis (Q3)
   const q3Recs = allRecords.filter(r => r.kategori_q === 'Q3');
   const q3TidakPuas = q3Recs.length;
   const q3Puas = Math.max(0, totalUnits - q3TidakPuas);
   const q3PuasPct = totalUnits > 0 ? Math.round((q3Puas / totalUnits) * 100) : 0;
   const q3TidakPuasPct = totalUnits > 0 ? Math.round((q3TidakPuas / totalUnits) * 100) : 0;
 
-  // ── Dealer Question Cards (Gambar 2 Bottom Concept) ───────────────────────
+  // ── Dealer Question Cards — count & records SESUAI kategori_q keluhan ─────
+  // Setiap kartu hanya menampilkan unit yang kategori_q-nya sesuai.
+  // Tidak ada lagi "Total Unit Masuk" — angka mengikuti keluhan.
   const dealerCards = useMemo(() => [
+    {
+      key: 'FIR',
+      label: 'FIR',
+      title: 'Fix It Right',
+      desc: 'Fix It Right (FIR)',
+      bg: 'bg-emerald-700',
+      icon: CheckCircle2,
+      filterFn: (records) => records.filter(r => r.kategori_q === 'FIR'),
+    },
     {
       key: 'Q1',
       label: 'Q1',
-      title: 'Total Unit Masuk',
-      count: totalUnits,
+      title: 'Kualitas Hasil Service',
+      desc: 'Kualitas Hasil Service',
       bg: 'bg-[#0b3c70]',
       icon: Truck,
-      filterFn: (records) => records,
+      filterFn: (records) => records.filter(r => r.kategori_q === 'Q1'),
     },
     {
       key: 'Q2',
       label: 'Q2',
-      title: 'Unit Di-Follow Up',
-      count: totalUnits,
+      title: 'Ketepatan Pengiriman Servis',
+      desc: 'Ketepatan Pengiriman Servis',
       bg: 'bg-[#2f2762]',
       icon: Search,
-      filterFn: (records) => records,
+      filterFn: (records) => records.filter(r => r.kategori_q === 'Q2'),
     },
     {
       key: 'Q3',
       label: 'Q3',
-      title: 'Sudah Di Call',
-      count: totalTerhubung,
+      title: 'Lama Waktu Servis',
+      desc: 'Lama Waktu Servis',
       bg: 'bg-[#18532c]',
       icon: PhoneCall,
-      filterFn: (records) => records.filter(r => r.status_rtj === 'Completed' || r.status_rtj === 'Rescheduled'),
+      filterFn: (records) => records.filter(r => r.kategori_q === 'Q3'),
     },
     {
       key: 'Q4',
       label: 'Q4',
       title: 'FIR Total',
-      count: totalFIR,
+      desc: 'FIR Total',
       bg: 'bg-[#0f4d45]',
       icon: CheckCircle2,
-      filterFn: (records) => records.filter(r => r.status_rtj === 'Completed'),
+      filterFn: (records) => records.filter(r => r.kategori_q === 'Q4'),
     },
     {
       key: 'Q5',
       label: 'Q5',
       title: 'Jumlah PSFU',
-      count: Math.min(5, totalUnits),
+      desc: 'Jumlah PSFU',
       bg: 'bg-[#964b15]',
       icon: ClipboardList,
-      filterFn: (records) => {
-        const q5 = records.filter(r => r.kategori_q === 'Q5');
-        return q5.length > 0 ? q5 : records.slice(0, Math.min(5, records.length));
-      },
+      filterFn: (records) => records.filter(r => r.kategori_q === 'Q5'),
     },
     {
       key: 'Q6',
       label: 'Q6',
-      title: 'Perlu DiFollow-Up',
-      count: totalPending,
+      title: 'Perlu Di-Follow Up',
+      desc: 'Perlu Di-Follow Up',
       bg: 'bg-[#6b1d42]',
       icon: PhoneCall,
-      filterFn: (records) => records.filter(r => r.status_rtj === 'Pending' || r.status_rtj === 'Scheduled' || !r.status_rtj),
+      filterFn: (records) => records.filter(r => r.kategori_q === 'Q6'),
     },
-  ], [totalUnits, totalTerhubung, totalFIR, totalPending]);
+  ], []);
 
-  const activeCard = dealerCards.find(c => c.key === activeQ) || dealerCards[0];
+  // Tambahkan count dinamis berdasarkan allRecords
+  const dealerCardsWithCount = useMemo(() =>
+    dealerCards.map(c => ({ ...c, count: c.filterFn(allRecords).length }))
+  , [dealerCards, allRecords]);
+
+  const activeCard = dealerCardsWithCount.find(c => c.key === activeQ) || dealerCardsWithCount[0];
 
   // ── Displayed Records for Unit Table ──────────────────────────────────────
   const displayRecords = useMemo(() => {
@@ -492,7 +503,7 @@ export default function Statistik() {
 
   // ── Export Excel ──────────────────────────────────────────────────────────
   const handleExportExcel = () => {
-    const rows = dealerCards.map(c => ({
+    const rows = dealerCardsWithCount.map(c => ({
       'Kategori': c.label,
       'Deskripsi': c.title,
       'Jumlah Unit': c.count,
@@ -510,8 +521,8 @@ export default function Statistik() {
       {drilldownQ && (
         <QDetailModal
           qKey={drilldownQ}
-          cardInfo={dealerCards.find(c => c.key === drilldownQ) || Q_CATEGORIES.find(c => c.key === drilldownQ)}
-          records={dealerCards.find(c => c.key === drilldownQ)?.filterFn(allRecords) || allRecords}
+          cardInfo={dealerCardsWithCount.find(c => c.key === drilldownQ) || Q_CATEGORIES.find(c => c.key === drilldownQ)}
+          records={dealerCardsWithCount.find(c => c.key === drilldownQ)?.filterFn(allRecords) || allRecords}
           onClose={() => setDrilldownQ(null)}
         />
       )}
@@ -810,8 +821,8 @@ export default function Statistik() {
 
         {/* ── 6 Kategori Q Cards (Gambar 2 Bottom Concept) ── */}
         <div className="space-y-5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {dealerCards.map(card => {
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {dealerCardsWithCount.map(card => {
               const isSelected = activeQ === card.key;
               const Icon = card.icon;
               return (
@@ -837,6 +848,9 @@ export default function Statistik() {
                     </div>
                     <div className="text-xs sm:text-sm font-bold text-white/95 mt-1.5 tracking-wide">
                       {card.title}
+                    </div>
+                    <div className="text-[10px] text-white/60 mt-0.5 font-medium">
+                      Unit Follow-Up
                     </div>
                   </div>
                   {isSelected && (
