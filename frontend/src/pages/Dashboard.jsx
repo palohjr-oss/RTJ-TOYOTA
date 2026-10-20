@@ -68,24 +68,7 @@ export default function Dashboard() {
 
   const availableMonths = filterOptions.availableMonths || [];
 
-  // Auto-select bulan terbaru dari data real saat pertama kali load
-  React.useEffect(() => {
-    if (availableMonths.length > 0 && selectedPeriod === 'ALL') {
-      // Otomatis pilih bulan terbaru (index 0 karena sudah reverse-sorted)
-      const latest = availableMonths[0];
-      if (latest) {
-        setSelectedPeriod(latest.key);
-        setPeriodeMulai(latest.startDate);
-        setPeriodeSelesai(latest.endDate);
-        setAppliedFilters(prev => ({
-          ...prev,
-          periode_mulai: latest.startDate,
-          periode_selesai: latest.endDate
-        }));
-      }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chartData]);
+
 
   const handleMonthChange = (monthKey) => {
     setSelectedPeriod(monthKey);

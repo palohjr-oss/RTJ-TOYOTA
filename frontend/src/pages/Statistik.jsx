@@ -369,19 +369,7 @@ export default function Statistik() {
   const saList = chartOptionsData?.filterOptions?.saList || [];
   const allRecords = summaryData?.records || [];
 
-  // Auto-select latest month
-  React.useEffect(() => {
-    if (availableMonths.length > 0 && selectedPeriod === 'ALL') {
-      const latest = availableMonths[0];
-      if (latest) {
-        setSelectedPeriod(latest.key);
-        setPeriodeMulai(latest.startDate);
-        setPeriodeSelesai(latest.endDate);
-        setAppliedFilters(prev => ({ ...prev, periode_mulai: latest.startDate, periode_selesai: latest.endDate }));
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chartOptionsData]);
+
 
   const handleMonthChange = (key) => {
     setSelectedPeriod(key);

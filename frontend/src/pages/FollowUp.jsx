@@ -268,18 +268,7 @@ export default function FollowUp() {
   const saList = chartData?.filterOptions?.saList || [];
   const foList = chartData?.filterOptions?.foList || [];
 
-  // Auto-select latest month
-  React.useEffect(() => {
-    if (availableMonths.length > 0 && selectedPeriod === 'ALL') {
-      const latest = availableMonths[0];
-      if (latest) {
-        setSelectedPeriod(latest.key);
-        setPeriodeMulai(latest.startDate);
-        setPeriodeSelesai(latest.endDate);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chartData]);
+
 
   const handleMonthChange = (monthKey) => {
     setSelectedPeriod(monthKey);
