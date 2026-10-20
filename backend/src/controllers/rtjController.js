@@ -20,14 +20,12 @@ function parseExcelDate(val) {
     return val.toISOString().split('T')[0];
   }
   if (typeof val === 'number') {
-    // Excel date serial number (origin: Dec 30 1899)
     const date = new Date((val - 25569) * 86400 * 1000);
     if (!isNaN(date)) return date.toISOString().split('T')[0];
   }
   const s = String(val).trim();
   if (!s) return null;
-  
-  // Standard ISO YYYY-MM-DD
+
   const isoMatch = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
   if (isoMatch) {
     const y = isoMatch[1];
@@ -36,29 +34,18 @@ function parseExcelDate(val) {
     return `${y}-${m}-${d}`;
   }
 
-  // Indonesian / standard format: DD/MM/YYYY or DD/MM/YY or DD-MM-YYYY
   const slashMatch = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
   if (slashMatch) {
     let day = parseInt(slashMatch[1], 10);
     let month = parseInt(slashMatch[2], 10);
     let year = slashMatch[3];
-    if (year.length === 2) {
-      year = '20' + year;
-    }
-    
-    // In case MM/DD/YYYY was provided where day > 12
-    if (month > 12 && day <= 12) {
-      const temp = day;
-      day = month;
-      month = temp;
-    }
-    
+    if (year.length === 2) year = '20' + year;
+    if (month > 12 && day <= 12) { const t = day; day = month; month = t; }
     const mm = String(month).padStart(2, '0');
     const dd = String(day).padStart(2, '0');
     return `${year}-${mm}-${dd}`;
   }
 
-  // Indonesian month names (e.g. 15 Agustus 2024 or 15-Agu-2024)
   const indoMonths = {
     jan: '01', januari: '01', january: '01',
     feb: '02', februari: '02', february: '02',
@@ -80,63 +67,27 @@ function parseExcelDate(val) {
     const mStr = textDateMatch[2].toLowerCase();
     let year = textDateMatch[3];
     if (year.length === 2) year = '20' + year;
-    
     const mm = indoMonths[mStr];
-    if (mm) {
-      return `${year}-${mm}-${day}`;
-    }
+    if (mm) return `${year}-${mm}-${day}`;
   }
 
-  // Native Date fallback
   const d = new Date(s);
-  if (!isNaN(d.getTime())) {
-    return d.toISOString().split('T')[0];
-  }
-
+  if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
   return null;
 }
 
 export const getRTJList = async (req, res) => {
   try {
     const {
-      sa,
-      fo,
-      status,
-      kategori_q,
-      search,
-      periode_mulai,
-      periode_selesai,
-      page = 1,
-      limit = 10,
-      sort_by = 'tanggal_service',
-      sort_order = 'desc'
+      sa, fo, status, kategori_q, search, periode_mulai, periode_selesai,
+      page = 1, limit = 10, sort_by = 'tanggal_service', sort_order = 'desc'
     } = req.query;
 
-    const result = await db.getRTJList({
-      sa,
-      fo,
-      status,
-      kategori_q,
-      search,
-      periode_mulai,
-      periode_selesai,
-      page,
-      limit,
-      sort_by,
-      sort_order
-    });
-
-    return res.json({
-      success: true,
-      message: 'Data RTJ berhasil diambil.',
-      ...result
-    });
+    const result = await db.getRTJList({ sa, fo, status, kategori_q, search, periode_mulai, periode_selesai, page, limit, sort_by, sort_order });
+    return res.json({ success: true, message: 'Data RTJ berhasil diambil.', ...result });
   } catch (error) {
     console.error('getRTJList error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Gagal mengambil data RTJ.'
-    });
+    return res.status(500).json({ success: false, message: 'Gagal mengambil data RTJ.' });
   }
 };
 
@@ -144,89 +95,25 @@ export const getRTJById = async (req, res) => {
   try {
     const { id } = req.params;
     const rtj = await db.getRTJById(id);
-
-    if (!rtj) {
-      return res.status(404).json({
-        success: false,
-        message: 'Data RTJ tidak ditemukan.'
-      });
-    }
-
-    return res.json({
-      success: true,
-      data: rtj
-    });
+    if (!rtj) return res.status(404).json({ success: false, message: 'Data RTJ tidak ditemukan.' });
+    return res.json({ success: true, data: rtj });
   } catch (error) {
     console.error('getRTJById error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Gagal mengambil detail data RTJ.'
-    });
+    return res.status(500).json({ success: false, message: 'Gagal mengambil detail data RTJ.' });
   }
 };
 
 export const createRTJ = async (req, res) => {
   try {
-    const {
-      nama_customer,
-      no_polisi,
-      tanggal_service,
-      status_rtj,
-      kategori_q,
-      no_hp,
-      model,
-      unit,
-      service,
-      sa,
-      fo,
-      teknisi,
-      km_service,
-      tanggal_rtj,
-      batas_periode_rtj,
-      detail_kendala,
-      keterangan
-    } = req.body;
-
+    const { nama_customer, no_polisi, tanggal_service, status_rtj, kategori_q, no_hp, model, unit, service, sa, fo, teknisi, km_service, tanggal_rtj, batas_periode_rtj, detail_kendala, keterangan } = req.body;
     if (!nama_customer || !no_polisi || !tanggal_service) {
-      return res.status(400).json({
-        success: false,
-        message: 'Nama Customer, No. Polisi, dan Tanggal Service wajib diisi.'
-      });
+      return res.status(400).json({ success: false, message: 'Nama Customer, No. Polisi, dan Tanggal Service wajib diisi.' });
     }
-
-    const created = await db.createRTJ(
-      {
-        nama_customer,
-        no_polisi,
-        tanggal_service,
-        status_rtj: status_rtj || 'Scheduled',
-        kategori_q: kategori_q || 'Q1',
-        no_hp,
-        model: model || unit || 'Toyota',
-        service: service || '',
-        sa,
-        fo,
-        teknisi: teknisi || '-',
-        km_service,
-        tanggal_rtj,
-        batas_periode_rtj,
-        detail_kendala,
-        keterangan
-      },
-      req.user
-    );
-
-    return res.status(201).json({
-      success: true,
-      message: 'Data RTJ baru berhasil disimpan.',
-      data: created
-    });
+    const created = await db.createRTJ({ nama_customer, no_polisi, tanggal_service, status_rtj: status_rtj || 'Scheduled', kategori_q: kategori_q || 'Q1', no_hp, model: model || unit || 'Toyota', service: service || '', sa, fo, teknisi: teknisi || '-', km_service, tanggal_rtj, batas_periode_rtj, detail_kendala, keterangan }, req.user);
+    return res.status(201).json({ success: true, message: 'Data RTJ baru berhasil disimpan.', data: created });
   } catch (error) {
     console.error('createRTJ error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Gagal menambahkan data RTJ.'
-    });
+    return res.status(500).json({ success: false, message: 'Gagal menambahkan data RTJ.' });
   }
 };
 
@@ -234,28 +121,13 @@ export const updateRTJ = async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = req.body;
-
     const existing = await db.getRTJById(id);
-    if (!existing) {
-      return res.status(404).json({
-        success: false,
-        message: 'Data RTJ tidak ditemukan.'
-      });
-    }
-
+    if (!existing) return res.status(404).json({ success: false, message: 'Data RTJ tidak ditemukan.' });
     const updated = await db.updateRTJ(id, updateData, req.user);
-
-    return res.json({
-      success: true,
-      message: 'Data RTJ berhasil diperbarui.',
-      data: updated
-    });
+    return res.json({ success: true, message: 'Data RTJ berhasil diperbarui.', data: updated });
   } catch (error) {
     console.error('updateRTJ error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Gagal memperbarui data RTJ.'
-    });
+    return res.status(500).json({ success: false, message: 'Gagal memperbarui data RTJ.' });
   }
 };
 
@@ -263,57 +135,37 @@ export const deleteRTJ = async (req, res) => {
   try {
     const { id } = req.params;
     const deleted = await db.deleteRTJ(id);
-
-    if (!deleted) {
-      return res.status(404).json({
-        success: false,
-        message: 'Data RTJ tidak ditemukan.'
-      });
-    }
-
-    return res.json({
-      success: true,
-      message: 'Data RTJ berhasil dihapus.'
-    });
+    if (!deleted) return res.status(404).json({ success: false, message: 'Data RTJ tidak ditemukan.' });
+    return res.json({ success: true, message: 'Data RTJ berhasil dihapus.' });
   } catch (error) {
     console.error('deleteRTJ error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Gagal menghapus data RTJ.'
-    });
+    return res.status(500).json({ success: false, message: 'Gagal menghapus data RTJ.' });
   }
 };
 
 export const deleteAllRTJ = async (req, res) => {
   try {
     const deletedCount = await db.deleteAllRTJ();
-
-    return res.json({
-      success: true,
-      message: `Berhasil menghapus ${deletedCount} data RTJ dan seluruh history terkait.`,
-      deleted_count: deletedCount
-    });
+    return res.json({ success: true, message: `Berhasil menghapus ${deletedCount} data RTJ dan seluruh history terkait.`, deleted_count: deletedCount });
   } catch (error) {
     console.error('deleteAllRTJ error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Gagal menghapus semua data RTJ.'
-    });
+    return res.status(500).json({ success: false, message: 'Gagal menghapus semua data RTJ.' });
   }
 };
 
+// ─── Import Excel ─────────────────────────────────────────────────────────────
+// Mendukung DUA format:
+// 1. Format JULII / Wira Toyota GW (tanpa header, berdasarkan posisi kolom)
+//    Ciri: baris pertama langsung data, col0 = kode WO (GW-BKM-...), col10 = FIR/TD/Q1-Q6
+// 2. Format header-based lama (template RTJ standar dengan baris header)
 export const importExcel = async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: 'File Excel (.xlsx/.xls) belum diunggah.'
-      });
+      return res.status(400).json({ success: false, message: 'File Excel (.xlsx/.xls) belum diunggah.' });
     }
 
-    const workbook = XLSX.read(req.file.buffer, { type: 'buffer', cellDates: true });
-    
-    // Find target sheet: nama sheet yang mengandung "rtj", "return job", "data", atau sheet pertama
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer', cellDates: true, raw: false });
+
     let sheetName = workbook.SheetNames.find(n => {
       const ln = n.toLowerCase();
       return ln.includes('data rtj') || ln.includes('return job') || ln.includes('rtj');
@@ -321,166 +173,210 @@ export const importExcel = async (req, res) => {
     const sheet = workbook.Sheets[sheetName];
 
     if (!sheet) {
-      return res.status(400).json({
-        success: false,
-        message: 'Lembar kerja (sheet) Excel tidak valid atau kosong.'
-      });
+      return res.status(400).json({ success: false, message: 'Lembar kerja (sheet) Excel tidak valid atau kosong.' });
     }
 
-    // === AUTO-DETECT HEADER ROW ===
-    // Banyak file Wira Toyota punya baris judul di atas (RETURN JOB RTJ, AGUSTUS, dll)
-    // sebelum baris header kolom sebenarnya.
-    // Strategi: baca sebagai array of arrays, scan 20 baris pertama, cari baris yang
-    // paling banyak mengandung kata kunci kolom RTJ.
-    const HEADER_KEYWORDS = [
-      'no', 'polisi', 'nopol', 'customer', 'nama', 'tanggal', 'tgl',
-      'service', 'sa', 'fo', 'teknisi', 'status', 'kategori', 'q1', 'keterangan',
-      'kendala', 'hp', 'unit', 'model', 'km', 'rtj', 'wo'
-    ];
-
-    const rawArrays = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-    
-    let headerRowIndex = 0; // default: baris pertama
-    let bestScore = 0;
-
-    for (let i = 0; i < Math.min(20, rawArrays.length); i++) {
-      const row = rawArrays[i];
-      const score = row.filter(cell => {
-        const cellStr = String(cell || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-        return HEADER_KEYWORDS.some(kw => cellStr.includes(kw));
-      }).length;
-
-      if (score > bestScore) {
-        bestScore = score;
-        headerRowIndex = i;
-      }
-    }
-
-    // Ambil baris header dan baris data setelahnya
-    const headers = rawArrays[headerRowIndex];
-    const dataRows = rawArrays.slice(headerRowIndex + 1).filter(row =>
-      row.some(cell => cell !== '' && cell !== null && cell !== undefined)
+    const rawArrays = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+    const nonEmptyRows = rawArrays.filter(row =>
+      Array.isArray(row) && row.some(cell => cell !== '' && cell !== null && cell !== undefined)
     );
 
-    // Konversi ke format object seperti sheet_to_json normal
-    const rawRows = dataRows.map(row => {
-      const obj = {};
-      headers.forEach((h, idx) => {
-        if (h !== '' && h !== null && h !== undefined) {
-          obj[String(h)] = row[idx] !== undefined ? row[idx] : '';
-        }
-      });
-      return obj;
-    });
-
-    if (!rawRows || rawRows.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'File Excel tidak memiliki baris data.'
-      });
+    if (!nonEmptyRows.length) {
+      return res.status(400).json({ success: false, message: 'File Excel tidak memiliki baris data.' });
     }
+
+    // ── Deteksi format: julii (positional) vs header-based ──
+    const HEADER_KEYWORDS = [
+      'no', 'polisi', 'nopol', 'customer', 'nama', 'tanggal', 'tgl',
+      'service', 'sa', 'fo', 'teknisi', 'status', 'kategori', 'keterangan',
+      'kendala', 'hp', 'unit', 'model', 'km', 'rtj', 'wo', 'q1', 'q2', 'q3'
+    ];
+
+    let headerRowIndex = -1;
+    let bestScore = 0;
+    for (let i = 0; i < Math.min(20, nonEmptyRows.length); i++) {
+      const row = nonEmptyRows[i];
+      const score = row.filter(cell => {
+        const s = String(cell || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        return HEADER_KEYWORDS.some(kw => s.includes(kw));
+      }).length;
+      if (score > bestScore) { bestScore = score; headerRowIndex = i; }
+    }
+
+    const firstRow = nonEmptyRows[0] || [];
+    // Julii: col0 = kode WO seperti "GW-BKM-26070011" atau "WO/2026/..."
+    // col10 = FIR / TD / Q1-Q6 (nilai status follow-up)
+    const col0str = String(firstRow[0] || '');
+    const col10str = String(firstRow[10] || '').toUpperCase().trim();
+    const isWOCode = /^(GW|WO)[\-\/]/i.test(col0str);
+    const isFUVal = ['FIR', 'TD', 'Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'PSFU'].includes(col10str);
+    const isJuliiFormat = isWOCode || (isFUVal && bestScore < 4);
 
     const validRows = [];
     const errors = [];
 
-    rawRows.forEach((row, index) => {
-      const rowNum = index + 2;
+    if (isJuliiFormat) {
+      // ── Format JULII / Wira Toyota GW ──
+      // Col layout (sesuai file julii):
+      // 0=NoWO, 1=TglService, 2=NoPolisi, 3=NamaCustomer, 4=NamaPerusahaan,
+      // 5=Model, 6=Tahun, 7=Service/Pekerjaan, 8=SA, 9=PKB(V/-),
+      // 10=StatusFU (FIR/TD/Q1-Q6), 11=PuasFasilitas, 12=PuasPelayanan,
+      // 13=PuasKantin, 14=DetailKeluhan/KetHasil, 15=SpesifikPuas,
+      // 16=NoHP, 17=TglRTJ, 18=Waktu, 19=Jam, 20=Score,
+      // ..., 26=FO, 27=Teknisi
+      nonEmptyRows.forEach((row, index) => {
+        const rowNum = index + 1;
+        const c = (i) => String(row[i] ?? '').trim();
 
-      // Map dynamic column names (tolerant to user variations)
-      const mapped = {};
-      Object.keys(row).forEach(key => {
-        const norm = normalizeKey(key);
-        const val = row[key];
+        const no_wo       = c(0);
+        const tgl_service = c(1);
+        const no_polisi   = c(2);
+        const nama_cust   = c(3);
+        const model       = c(5) || c(4);
+        const service     = c(7);
+        const sa          = c(8);
+        const status_raw  = c(10).toUpperCase();
+        const detail      = c(14);
+        const no_hp       = c(16);
+        const tgl_rtj     = c(17);
+        const fo          = row.length > 26 ? c(26) : '';
+        const teknisi     = row.length > 27 ? c(27) : '';
 
-        if (norm === 'no' || norm === 'nourut') mapped.no_urut = val;
-        else if (norm.includes('q1q5') || norm.includes('kategori') || norm === 'q' || norm === 'kategoriq') mapped.kategori_q = val;
-        else if (norm.includes('tanggalservice') || norm.includes('tglservice')) mapped.tanggal_service = val;
-        else if (norm.includes('nowo') || norm === 'wo') mapped.no_wo = val;
-        else if (norm.includes('nopolisi') || norm.includes('nopol') || norm.includes('plat')) mapped.no_polisi = val;
-        else if (norm.includes('namacustomer') || norm.includes('customer') || norm.includes('nama')) mapped.nama_customer = val;
-        else if (norm.includes('nohp') || norm.includes('telp') || norm.includes('hp') || norm.includes('kontak') || norm.includes('telepon')) mapped.no_hp = val;
-        else if (norm === 'unit' || norm.includes('model') || norm.includes('kendaraan') || norm.includes('tipe')) mapped.model = val;
-        else if (norm === 'service' || norm.includes('jenisservice') || norm.includes('detailservice')) mapped.service = val;
-        else if (norm === 'sa' || norm.includes('serviceadvisor')) mapped.sa = val;
-        else if (norm === 'fo' || norm.includes('frontofficer')) mapped.fo = val;
-        else if (norm === 'teknisi' || norm.includes('mekanik')) mapped.teknisi = val;
-        else if (norm.includes('kmservice') || norm === 'km') mapped.km_service = val;
-        else if (norm.includes('tanggalrtj') || norm.includes('tglrtj')) mapped.tanggal_rtj = val;
-        else if (norm.includes('batasperiodertj') || norm.includes('batasrtj')) mapped.batas_periode_rtj = val;
-        else if (norm.includes('statusrtj') || norm === 'status') mapped.status_rtj = val;
-        else if (norm.includes('detailkendala') || norm.includes('kendala') || norm.includes('keluhan')) mapped.detail_kendala = val;
-        else if (norm.includes('keterangan') || norm.includes('catatan') || norm.includes('ket')) mapped.keterangan = val;
+        const rowErrList = [];
+        if (!nama_cust) rowErrList.push('Nama Customer kosong');
+        if (!no_polisi) rowErrList.push('No. Polisi kosong');
+        const parsedTglService = parseExcelDate(tgl_service);
+        if (!parsedTglService) rowErrList.push(`Tanggal Service tidak valid: "${tgl_service}"`);
+
+        if (rowErrList.length > 0) {
+          errors.push({ row: rowNum, customer: nama_cust || '-', nopol: no_polisi || '-', reasons: rowErrList });
+          return;
+        }
+
+        // Tentukan kategoriQ dan statusRtj dari status_raw
+        let kategoriQ = 'Q1';
+        let statusRtj = 'Scheduled';
+
+        if (status_raw === 'FIR') {
+          kategoriQ = 'FIR'; statusRtj = 'Completed';
+        } else if (VALID_CATEGORIES.includes(status_raw)) {
+          kategoriQ = status_raw; statusRtj = 'Scheduled';
+        } else if (status_raw === 'TD' || status_raw === '' || status_raw === '-') {
+          statusRtj = 'Pending';
+        } else if (status_raw.includes('FIR')) {
+          kategoriQ = 'FIR'; statusRtj = 'Completed';
+        } else if (status_raw.includes('PSFU')) {
+          kategoriQ = 'Q5';
+        }
+
+        let km = 0;
+        const kmMatch = service.match(/(\d{1,3}(?:[.,]\d{3})*)\s*KM/i);
+        if (kmMatch) km = parseInt(kmMatch[1].replace(/[.,]/g, ''), 10) || 0;
+
+        validRows.push({
+          no_urut: null,
+          kategori_q: kategoriQ,
+          tanggal_service: parsedTglService,
+          no_wo: no_wo || null,
+          no_polisi: no_polisi.toUpperCase().replace(/\s+/g, ''),
+          nama_customer: nama_cust,
+          no_hp: no_hp || '',
+          model: model || 'Toyota',
+          service: service || '',
+          sa: sa || 'Service Advisor',
+          fo: fo || 'Front Officer',
+          teknisi: teknisi || '-',
+          km_service: km,
+          tanggal_rtj: parseExcelDate(tgl_rtj) || parsedTglService,
+          batas_periode_rtj: null,
+          status_rtj: statusRtj,
+          detail_kendala: detail || '',
+          keterangan: ''
+        });
       });
 
-      const rowErrors = [];
+    } else {
+      // ── Format LAMA: header-based ──
+      const headers = nonEmptyRows[headerRowIndex >= 0 ? headerRowIndex : 0] || [];
+      const dataRows = nonEmptyRows.slice((headerRowIndex >= 0 ? headerRowIndex : 0) + 1).filter(row =>
+        row.some(cell => cell !== '' && cell !== null && cell !== undefined)
+      );
 
-      // 1. Nama Customer
-      if (!mapped.nama_customer || String(mapped.nama_customer).trim() === '') {
-        rowErrors.push('Nama Customer kosong');
-      }
+      const rawRows = dataRows.map(row => {
+        const obj = {};
+        headers.forEach((h, idx) => {
+          if (h !== '' && h !== null && h !== undefined) {
+            obj[String(h)] = row[idx] !== undefined ? row[idx] : '';
+          }
+        });
+        return obj;
+      });
 
-      // 2. No. Polisi
-      if (!mapped.no_polisi || String(mapped.no_polisi).trim() === '') {
-        rowErrors.push('No. Polisi kosong');
-      }
+      rawRows.forEach((row, index) => {
+        const rowNum = index + 2;
+        const mapped = {};
+        Object.keys(row).forEach(key => {
+          const norm = normalizeKey(key);
+          const val = row[key];
+          if (norm === 'no' || norm === 'nourut') mapped.no_urut = val;
+          else if (norm.includes('q1q5') || norm.includes('q1q6') || norm.includes('kategori') || norm === 'q' || norm === 'kategoriq') mapped.kategori_q = val;
+          else if (norm.includes('tanggalservice') || norm.includes('tglservice') || norm === 'tanggalde' || norm === 'tglde') mapped.tanggal_service = val;
+          else if (norm.includes('nowo') || norm === 'wo') mapped.no_wo = val;
+          else if (norm.includes('nopolisi') || norm.includes('nopol') || norm.includes('plat') || norm === 'nopol') mapped.no_polisi = val;
+          else if (norm.includes('namacustomer') || norm.includes('customer') || (norm.includes('nama') && !mapped.nama_customer)) mapped.nama_customer = val;
+          else if (norm.includes('nohp') || norm.includes('telp') || norm === 'hp' || norm === 'telpon' || norm === 'telepon') mapped.no_hp = val;
+          else if (norm === 'unit' || norm === 'type' || norm.includes('model') || norm.includes('kendaraan') || norm.includes('tipe')) mapped.model = val;
+          else if (norm === 'service' || norm === 'pekerjaan' || norm.includes('jenisservice')) mapped.service = val;
+          else if (norm === 'sa' || norm.includes('serviceadvisor')) mapped.sa = val;
+          else if (norm === 'fo' || norm.includes('frontofficer')) mapped.fo = val;
+          else if (norm === 'teknisi' || norm.includes('mekanik')) mapped.teknisi = val;
+          else if (norm.includes('kmservice') || norm === 'km') mapped.km_service = val;
+          else if (norm.includes('tanggalrtj') || norm.includes('tglrtj') || norm === 'tglfu' || norm === 'tanggalfu') mapped.tanggal_rtj = val;
+          else if (norm.includes('batasperiodertj') || norm.includes('batasrtj')) mapped.batas_periode_rtj = val;
+          else if (norm.includes('statusrtj') || norm === 'status' || norm === 'fu') mapped.status_rtj = val;
+          else if (norm.includes('detailkendala') || norm.includes('kendala') || norm.includes('keluhan') || norm.includes('kethasilservice')) mapped.detail_kendala = val;
+          else if (norm.includes('keterangan') || norm.includes('catatan')) mapped.keterangan = val;
+          else if (norm === 'cabang') mapped.cabang = val;
+        });
 
-      // 3. Tanggal Service
-      const parsedTglService = parseExcelDate(mapped.tanggal_service);
-      if (!parsedTglService) {
-        rowErrors.push(`Format Tanggal Service ("${mapped.tanggal_service}") tidak valid`);
-      }
+        const rowErrList = [];
+        if (!mapped.nama_customer || String(mapped.nama_customer).trim() === '') rowErrList.push('Nama Customer kosong');
+        if (!mapped.no_polisi || String(mapped.no_polisi).trim() === '') rowErrList.push('No. Polisi kosong');
+        const parsedTglService = parseExcelDate(mapped.tanggal_service);
+        if (!parsedTglService) rowErrList.push(`Format Tanggal Service ("${mapped.tanggal_service}") tidak valid`);
 
-      // 4. Status RTJ Enum Validation
-      let statusRtj = 'Scheduled';
-      if (mapped.status_rtj && String(mapped.status_rtj).trim() !== '') {
-        const found = VALID_STATUSES.find(s => s.toLowerCase() === String(mapped.status_rtj).trim().toLowerCase());
-        if (found) {
-          statusRtj = found;
-        } else {
-          // Check common Indonesian variants
-          const strLower = String(mapped.status_rtj).toLowerCase();
-          if (strLower.includes('selesai') || strLower.includes('complete') || strLower.includes('sukses')) statusRtj = 'Completed';
-          else if (strLower.includes('pending') || strLower.includes('tunda') || strLower.includes('belum')) statusRtj = 'Pending';
-          else if (strLower.includes('jadwal ulang') || strLower.includes('reschedule')) statusRtj = 'Rescheduled';
-          else if (strLower.includes('jadwal') || strLower.includes('schedule')) statusRtj = 'Scheduled';
-          else {
-            rowErrors.push(`Status RTJ "${mapped.status_rtj}" tidak valid`);
+        let statusRtj = 'Scheduled';
+        if (mapped.status_rtj && String(mapped.status_rtj).trim() !== '') {
+          const found = VALID_STATUSES.find(s => s.toLowerCase() === String(mapped.status_rtj).trim().toLowerCase());
+          if (found) { statusRtj = found; } else {
+            const sl = String(mapped.status_rtj).toLowerCase();
+            if (sl.includes('selesai') || sl.includes('complete') || sl === 'fir') statusRtj = 'Completed';
+            else if (sl.includes('pending') || sl.includes('tunda') || sl === 'td') statusRtj = 'Pending';
+            else if (sl.includes('reschedule') || sl.includes('jadwal ulang')) statusRtj = 'Rescheduled';
+            else if (sl.includes('jadwal') || sl.includes('schedule')) statusRtj = 'Scheduled';
           }
         }
-      }
 
-      // 5. Kategori Q (Q1-Q6)
-      let kategoriQ = 'Q1';
-      if (mapped.kategori_q) {
-        const upper = String(mapped.kategori_q).trim().toUpperCase();
-        if (VALID_CATEGORIES.includes(upper)) {
-          kategoriQ = upper;
-        } else if (upper.includes('6')) kategoriQ = 'Q6';
-        else if (upper.includes('5')) kategoriQ = 'Q5';
-        else if (upper.includes('4')) kategoriQ = 'Q4';
-        else if (upper.includes('3')) kategoriQ = 'Q3';
-        else if (upper.includes('2')) kategoriQ = 'Q2';
-        else if (upper.includes('1')) kategoriQ = 'Q1';
-      }
+        let kategoriQ = 'Q1';
+        if (mapped.kategori_q) {
+          const upper = String(mapped.kategori_q).trim().toUpperCase();
+          if (VALID_CATEGORIES.includes(upper)) kategoriQ = upper;
+          else if (upper.includes('6')) kategoriQ = 'Q6';
+          else if (upper.includes('5')) kategoriQ = 'Q5';
+          else if (upper.includes('4')) kategoriQ = 'Q4';
+          else if (upper.includes('3')) kategoriQ = 'Q3';
+          else if (upper.includes('2')) kategoriQ = 'Q2';
+        }
 
-      if (rowErrors.length > 0) {
-        errors.push({
-          row: rowNum,
-          customer: mapped.nama_customer || '-',
-          nopol: mapped.no_polisi || '-',
-          reasons: rowErrors
-        });
-      } else {
-        const parsedTglRtj = parseExcelDate(mapped.tanggal_rtj) || parsedTglService;
-        const parsedBatasRtj = parseExcelDate(mapped.batas_periode_rtj);
+        if (rowErrList.length > 0) {
+          errors.push({ row: rowNum, customer: mapped.nama_customer || '-', nopol: mapped.no_polisi || '-', reasons: rowErrList });
+          return;
+        }
 
-        // Try extracting KM if in SERVICE string
         let km = Number(mapped.km_service) || 0;
         if (!km && mapped.service) {
           const kmMatch = String(mapped.service).match(/(\d{1,3}(?:\.\d{3})*)\s*KM/i);
-          if (kmMatch) {
-            km = parseInt(kmMatch[1].replace(/\./g, ''), 10) || 0;
-          }
+          if (kmMatch) km = parseInt(kmMatch[1].replace(/\./g, ''), 10) || 0;
         }
 
         validRows.push({
@@ -497,14 +393,19 @@ export const importExcel = async (req, res) => {
           fo: mapped.fo ? String(mapped.fo).trim() : 'Front Officer',
           teknisi: mapped.teknisi ? String(mapped.teknisi).trim() : '-',
           km_service: km,
-          tanggal_rtj: parsedTglRtj,
-          batas_periode_rtj: parsedBatasRtj,
+          tanggal_rtj: parseExcelDate(mapped.tanggal_rtj) || parsedTglService,
+          batas_periode_rtj: parseExcelDate(mapped.batas_periode_rtj),
           status_rtj: statusRtj,
           detail_kendala: mapped.detail_kendala ? String(mapped.detail_kendala).trim() : '',
-          keterangan: mapped.keterangan ? String(mapped.keterangan).trim() : ''
+          keterangan: mapped.keterangan ? String(mapped.keterangan).trim() : '',
+          cabang: mapped.cabang ? String(mapped.cabang).trim() : undefined
         });
-      }
-    });
+      });
+    }
+
+    if (validRows.length === 0 && errors.length === 0) {
+      return res.status(400).json({ success: false, message: 'File Excel tidak memiliki baris data yang bisa diproses.' });
+    }
 
     let importedItems = [];
     if (validRows.length > 0) {
@@ -517,14 +418,12 @@ export const importExcel = async (req, res) => {
       imported: validRows.length,
       failed: errors.length,
       errors: errors,
-      data: importedItems
+      data: importedItems,
+      format_detected: isJuliiFormat ? 'julii-positional' : 'header-based'
     });
   } catch (error) {
     console.error('importExcel error:', error);
-    return res.status(500).json({
-      success: false,
-      message: `Gagal memproses file Excel: ${error.message}`
-    });
+    return res.status(500).json({ success: false, message: `Gagal memproses file Excel: ${error.message}` });
   }
 };
 
@@ -532,72 +431,77 @@ export const exportTemplate = async (req, res) => {
   try {
     const templateData = [
       {
-        'No': 1,
-        'Q1-Q5': 'Q1',
-        'Tanggal Service': '8/1/2026',
+        'No. WO': 'GW-BKM-26070001',
+        'Tanggal Service': '7/1/2026',
         'No. Polisi': 'DA1871BM',
         'Nama Customer': 'WAHYUNI',
-        'No. HP': '081250112233',
-        'UNIT': 'CALYA',
-        'SERVICE': 'SBE 30.000 KM (T-CARE LITE +) GT OIL M/F (TMO 10W30)',
+        'Nama Perusahaan': '-',
+        'Tipe Unit': 'CALYA',
+        'Tahun': '2020',
+        'Pekerjaan / Service': 'SBE 30.000 KM (T-CARE LITE +) GT OIL M/F (TMO 10W30)',
         'SA': 'SUGIANTO',
+        'PKB': 'V',
+        'Status FU (FIR/TD/Q1-Q6)': 'FIR',
+        'Puas Fasilitas': 'PUAS',
+        'Puas Pelayanan': 'PUAS',
+        'Puas Kantin': 'PUAS',
+        'Detail Keluhan / Hasil Service': 'KELUHAN AFTER SERVICE OK',
+        'Spesifik Puas': 'QUALITY',
+        'No. HP': '081250112233',
+        'Tanggal RTJ': '7/4/2026',
+        'Waktu': 'PAGI',
+        'Jam': '08:30',
+        'Score': '9',
+        'Dealer Rekomendasi': 'IYA',
+        'Col23': '',
+        'Col24': '',
+        'Col25': '',
+        'Col26': '',
         'FO': 'Sapruddin',
-        'TEKNISI': 'Mohamad',
-        'Detail Kendala': 'KELUHAN AFTER SERVICE',
-        'Tanggal RTJ': '8/4/2026',
-        'Keterangan': 'BOOKING 06 AGUSTUS',
-        'Status RTJ': 'Completed'
+        'Teknisi': 'Mohamad',
       },
       {
-        'No': 2,
-        'Q1-Q5': 'Q1',
-        'Tanggal Service': '8/3/2026',
+        'No. WO': 'GW-BKM-26070002',
+        'Tanggal Service': '7/1/2026',
         'No. Polisi': 'DA1300JU',
         'Nama Customer': 'TIENDRAWANI TANGAMUS',
-        'No. HP': '',
-        'UNIT': 'NEW VELOZ',
-        'SERVICE': 'SBE 70.000 KM GT OLI M/F (5W30) REM KADANG BUNYI BUNYI KLUTUK2 BAGIAN BAWAH SAAT JLN KASAR',
+        'Nama Perusahaan': '-',
+        'Tipe Unit': 'GRAND NEW VELOZ',
+        'Tahun': '2019',
+        'Pekerjaan / Service': 'SBE 70.000 KM GT OLI M/F (5W30)',
         'SA': 'SUGIANTO',
+        'PKB': 'V',
+        'Status FU (FIR/TD/Q1-Q6)': 'TD',
+        'Puas Fasilitas': '',
+        'Puas Pelayanan': '',
+        'Puas Kantin': '',
+        'Detail Keluhan / Hasil Service': 'WA',
+        'Spesifik Puas': '',
+        'No. HP': '085251901288',
+        'Tanggal RTJ': '7/4/2026',
+        'Waktu': 'PAGI',
+        'Jam': '08:33',
+        'Score': '',
+        'Dealer Rekomendasi': '',
+        'Col23': '',
+        'Col24': '',
+        'Col25': '',
+        'Col26': '',
         'FO': 'Muhammad',
-        'TEKNISI': 'FIRMAN A',
-        'Detail Kendala': 'KELUHAN: AFTERSERVICE',
-        'Tanggal RTJ': '8/6/2026',
-        'Keterangan': 'BOOKING 4 AGUSTUS',
-        'Status RTJ': 'Completed'
-      },
-      {
-        'No': 3,
-        'Q1-Q5': 'Q1',
-        'Tanggal Service': '8/4/2026',
-        'No. Polisi': 'DA1572TMC',
-        'Nama Customer': 'AGUS SUTRISNO',
-        'No. HP': '',
-        'UNIT': 'INNOVA REBORN GASOLINE',
-        'SERVICE': 'GR ANALISA KELUHAN REM TANGAN SAAT TANJKAN TIDAK',
-        'SA': 'RUDI',
-        'FO': 'Muhammad',
-        'TEKNISI': 'Fauzi',
-        'Detail Kendala': 'KELUHAN: MASIH ADA KELUHAN REM TANGAN',
-        'Tanggal RTJ': '8/7/2026',
-        'Keterangan': 'BELUM TERKONFIRMASI',
-        'Status RTJ': 'Pending'
+        'Teknisi': 'FIRMAN A',
       }
     ];
 
     const ws = XLSX.utils.json_to_sheet(templateData);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Data RTJ');
+    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
 
     const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename="Template_RTJ_Wira_Toyota_Banjarmasin.xlsx"');
     return res.send(buffer);
   } catch (error) {
     console.error('exportTemplate error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Gagal membuat template Excel.'
-    });
+    return res.status(500).json({ success: false, message: 'Gagal membuat template Excel.' });
   }
 };

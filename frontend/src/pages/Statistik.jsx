@@ -60,6 +60,18 @@ function StepBadge({ status }) {
 
 // ─── Derive step status from RTJ record ───────────────────────────────────────
 function deriveSteps(record) {
+  // Jika ada recovery_steps yang di-set manual, gunakan itu
+  const rs = record.recovery_steps;
+  if (rs && (rs.recovery || rs.step_intern || rs.list_confirm || rs.recovery_action || rs.tindak_lanjut)) {
+    return {
+      recovery: rs.recovery || 'Belum',
+      stepIntern: rs.step_intern || 'Belum',
+      listConfirm: rs.list_confirm || 'Belum',
+      recoveryAction: rs.recovery_action || 'Belum',
+      tindakLanjut: rs.tindak_lanjut || 'Belum',
+    };
+  }
+  // Fallback: auto-derive dari status_rtj
   const s = record.status_rtj;
   if (s === 'Completed') {
     return { recovery: 'Selesai', stepIntern: 'Selesai', listConfirm: 'Selesai', recoveryAction: 'Selesai', tindakLanjut: 'Selesai' };

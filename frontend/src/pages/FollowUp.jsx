@@ -39,6 +39,11 @@ function EditRowModal({ record, onClose, onSave }) {
     detail_kendala: record.detail_kendala || '',
     keterangan: record.keterangan || '',
     tanggal_rtj: record.tanggal_rtj || '',
+    recovery: record.recovery_steps?.recovery || '',
+    step_intern: record.recovery_steps?.step_intern || '',
+    list_confirm: record.recovery_steps?.list_confirm || '',
+    recovery_action: record.recovery_steps?.recovery_action || '',
+    tindak_lanjut: record.recovery_steps?.tindak_lanjut || '',
   });
   const [saving, setSaving] = useState(false);
 
@@ -46,7 +51,17 @@ function EditRowModal({ record, onClose, onSave }) {
     e.preventDefault();
     setSaving(true);
     try {
-      await api.put(`/rtj/${record.id}`, form);
+      const payload = {
+        ...form,
+        recovery_steps: {
+          recovery: form.recovery,
+          step_intern: form.step_intern,
+          list_confirm: form.list_confirm,
+          recovery_action: form.recovery_action,
+          tindak_lanjut: form.tindak_lanjut,
+        }
+      };
+      await api.put(`/rtj/${record.id}`, payload);
       if (onSave) onSave();
       onClose();
     } catch (err) {
@@ -148,6 +163,35 @@ function EditRowModal({ record, onClose, onSave }) {
             <div className="col-span-2">
               <label className={labelClass}>Keterangan / Catatan</label>
               <textarea rows={2} className={fieldClass} value={form.keterangan} onChange={e => setForm(f => ({...f, keterangan: e.target.value}))} />
+            </div>
+          </div>
+
+          {/* ── Progres Recovery 5 Tahapan ── */}
+          <div className="border-t border-slate-100 pt-4">
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-3">Progres Recovery (5 Tahapan)</p>
+            <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
+              {[
+                { key: 'recovery', label: '1. Recovery' },
+                { key: 'step_intern', label: '2. Step Intern Discuss' },
+                { key: 'list_confirm', label: '3. List Confirm' },
+                { key: 'recovery_action', label: '4. Recovery Action' },
+                { key: 'tindak_lanjut', label: '5. Tindak Lanjut' },
+              ].map(({ key, label }) => (
+                <div key={key}>
+                  <label className={labelClass}>{label}</label>
+                  <select
+                    className={fieldClass}
+                    value={form[key]}
+                    onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+                  >
+                    <option value="">— Pilih —</option>
+                    <option value="Selesai">✅ Selesai</option>
+                    <option value="Dalam Proses">🔄 Dalam Proses</option>
+                    <option value="Menunggu">⏳ Menunggu</option>
+                    <option value="Belum">⬜ Belum</option>
+                  </select>
+                </div>
+              ))}
             </div>
           </div>
 
