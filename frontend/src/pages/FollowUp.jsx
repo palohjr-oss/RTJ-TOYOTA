@@ -38,6 +38,8 @@ function EditRowModal({ record, onClose, onSave }) {
     status_rtj: record.status_rtj || 'Scheduled',
     detail_kendala: record.detail_kendala || '',
     keterangan: record.keterangan || '',
+    hasil_idi: record.hasil_idi || '',
+    improvement: record.improvement || '',
     tanggal_rtj: record.tanggal_rtj || '',
     recovery: record.recovery_steps?.recovery || '',
     step_intern: record.recovery_steps?.step_intern || '',
@@ -163,6 +165,26 @@ function EditRowModal({ record, onClose, onSave }) {
             <div className="col-span-2">
               <label className={labelClass}>Keterangan / Catatan</label>
               <textarea rows={2} className={fieldClass} value={form.keterangan} onChange={e => setForm(f => ({...f, keterangan: e.target.value}))} />
+            </div>
+            <div className="col-span-2">
+              <label className={labelClass}>Hasil IDI</label>
+              <textarea
+                rows={2}
+                placeholder="Isi hasil IDI (In-Depth Interview) jika ada..."
+                className={fieldClass}
+                value={form.hasil_idi}
+                onChange={e => setForm(f => ({...f, hasil_idi: e.target.value}))}
+              />
+            </div>
+            <div className="col-span-2">
+              <label className={labelClass}>Improvement</label>
+              <textarea
+                rows={2}
+                placeholder="Isi catatan improvement / tindakan perbaikan..."
+                className={fieldClass}
+                value={form.improvement}
+                onChange={e => setForm(f => ({...f, improvement: e.target.value}))}
+              />
             </div>
           </div>
 

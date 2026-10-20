@@ -158,6 +158,22 @@ function CustomerDetailModal({ record, onClose, qCat }) {
             </div>
           )}
 
+          {/* Hasil IDI */}
+          {record.hasil_idi && (
+            <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+              <p className="text-[10px] font-bold text-blue-600 uppercase mb-1">Hasil IDI</p>
+              <p className="text-xs font-semibold text-blue-900">{record.hasil_idi}</p>
+            </div>
+          )}
+
+          {/* Improvement */}
+          {record.improvement && (
+            <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-200">
+              <p className="text-[10px] font-bold text-emerald-600 uppercase mb-1">Improvement</p>
+              <p className="text-xs font-semibold text-emerald-900">{record.improvement}</p>
+            </div>
+          )}
+
           {/* Progres Recovery — 5 Tahapan */}
           <div>
             <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-3">Progres Recovery</h3>
