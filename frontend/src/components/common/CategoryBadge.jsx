@@ -17,9 +17,17 @@ const categoryConfig = {
     bg: 'bg-teal-50 text-teal-700 border-teal-200',
     title: 'Reminder 12 Bulan / 20.000 KM'
   },
+  FIR: {
+    bg: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+    title: 'Fix It Right (FIR)'
+  },
   Q5: {
     bg: 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200',
     title: 'Inactive Follow-up'
+  },
+  Q6: {
+    bg: 'bg-rose-50 text-rose-700 border-rose-200',
+    title: 'Perlu Follow-up'
   }
 };
 

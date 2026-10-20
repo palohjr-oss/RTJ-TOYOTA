@@ -3,7 +3,7 @@ import { db } from '../models/db.js';
 
 // Valid enum values
 const VALID_STATUSES = ['Scheduled', 'Completed', 'Pending', 'Rescheduled'];
-const VALID_CATEGORIES = ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6'];
+const VALID_CATEGORIES = ['FIR', 'Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6'];
 
 // Normalize column header keys
 function normalizeKey(str) {

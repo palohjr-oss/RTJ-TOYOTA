@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
 import bcrypt from 'bcryptjs';
@@ -17,12 +18,22 @@ if (!process.env.SUPABASE_URL) {
 if (!process.env.SUPABASE_URL) {
   dotenv.config({ path: path.join(__dirname, '../../.env') });
 }
-const DATA_DIR = path.join(__dirname, '../../data');
-const STORE_PATH = path.join(DATA_DIR, 'store.json');
 
-// Ensure data dir exists
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+// In Vercel serverless environment, the lambda filesystem is read-only.
+// We use os.tmpdir() for persistent read/write within the lambda instance.
+const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const BUNDLED_DATA_DIR = path.join(__dirname, '../../data');
+const BUNDLED_STORE_PATH = path.join(BUNDLED_DATA_DIR, 'store.json');
+
+const DATA_DIR = isServerless ? path.join(os.tmpdir(), 'rtj_data') : BUNDLED_DATA_DIR;
+const STORE_PATH = isServerless ? path.join(DATA_DIR, 'store.json') : BUNDLED_STORE_PATH;
+
+try {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+} catch (err) {
+  console.warn('[Database] Could not create DATA_DIR:', err.message);
 }
 
 // Check Supabase config
@@ -713,24 +724,46 @@ const initialHistory = [
 
 // Helper to load store
 function loadStore() {
-  if (!fs.existsSync(STORE_PATH)) {
+  if (global.__memory_store) {
+    return global.__memory_store;
+  }
+
+  // If in serverless and /tmp store doesn't exist yet, seed it from bundled file
+  if (isServerless && !fs.existsSync(STORE_PATH) && fs.existsSync(BUNDLED_STORE_PATH)) {
+    try {
+      const bundledRaw = fs.readFileSync(BUNDLED_STORE_PATH, 'utf-8');
+      fs.writeFileSync(STORE_PATH, bundledRaw, 'utf-8');
+    } catch (e) {
+      console.warn('[Store] Could not seed /tmp store from bundled file:', e.message);
+    }
+  }
+
+  const readPath = fs.existsSync(STORE_PATH) ? STORE_PATH : (fs.existsSync(BUNDLED_STORE_PATH) ? BUNDLED_STORE_PATH : null);
+
+  if (!readPath) {
     const defaultData = {
       users: initialUsers,
       rtj: initialRTJ,
       history: initialHistory,
+      rtj_initialized: true
     };
-    fs.writeFileSync(STORE_PATH, JSON.stringify(defaultData, null, 2), 'utf-8');
+    try {
+      fs.writeFileSync(STORE_PATH, JSON.stringify(defaultData, null, 2), 'utf-8');
+    } catch (e) {}
+    global.__memory_store = defaultData;
     return defaultData;
   }
+
   try {
-    const raw = fs.readFileSync(STORE_PATH, 'utf-8');
+    const raw = fs.readFileSync(readPath, 'utf-8');
     const parsed = JSON.parse(raw);
     
     let updated = false;
 
     // Ensure required accounts exist
-    const hendri = parsed.users?.find(u => u.username.toUpperCase() === 'HENDRI');
+    const hendri = parsed.users?.find(u => u.username?.toUpperCase() === 'HENDRI');
     if (!hendri) {
+      parsed.users = parsed.users || [];
       parsed.users.push(initialUsers[0]);
       updated = true;
     } else if (!bcrypt.compareSync('BISMILLAH', hendri.password_hash)) {
@@ -738,8 +771,9 @@ function loadStore() {
       updated = true;
     }
 
-    const debby = parsed.users?.find(u => u.username.toUpperCase() === 'DEBBY');
+    const debby = parsed.users?.find(u => u.username?.toUpperCase() === 'DEBBY');
     if (!debby) {
+      parsed.users = parsed.users || [];
       parsed.users.push(initialUsers[1]);
       updated = true;
     } else if (!bcrypt.compareSync('1', debby.password_hash)) {
@@ -747,8 +781,6 @@ function loadStore() {
       updated = true;
     }
 
-    // Seed initial RTJ data hanya jika store belum pernah diinisialisasi
-    // Flag 'rtj_initialized' mencegah data dimuat ulang setelah user menghapus semua
     if (!parsed.rtj_initialized) {
       parsed.rtj = parsed.rtj || initialRTJ;
       parsed.history = parsed.history || initialHistory;
@@ -757,9 +789,12 @@ function loadStore() {
     }
 
     if (updated) {
-      fs.writeFileSync(STORE_PATH, JSON.stringify(parsed, null, 2), 'utf-8');
+      try {
+        fs.writeFileSync(STORE_PATH, JSON.stringify(parsed, null, 2), 'utf-8');
+      } catch (e) {}
     }
 
+    global.__memory_store = parsed;
     return parsed;
   } catch (err) {
     console.error('[Store] Corrupt store file, re-initializing...', err);
@@ -767,15 +802,27 @@ function loadStore() {
       users: initialUsers,
       rtj: initialRTJ,
       history: initialHistory,
+      rtj_initialized: true
     };
-    fs.writeFileSync(STORE_PATH, JSON.stringify(defaultData, null, 2), 'utf-8');
+    try {
+      fs.writeFileSync(STORE_PATH, JSON.stringify(defaultData, null, 2), 'utf-8');
+    } catch (e) {}
+    global.__memory_store = defaultData;
     return defaultData;
   }
 }
 
 // Helper to save store
 function saveStore(data) {
-  fs.writeFileSync(STORE_PATH, JSON.stringify(data, null, 2), 'utf-8');
+  global.__memory_store = data;
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    fs.writeFileSync(STORE_PATH, JSON.stringify(data, null, 2), 'utf-8');
+  } catch (err) {
+    console.warn('[Store] Disk sync warning, in-memory updated:', err.message);
+  }
 }
 
 export const db = {
@@ -1010,11 +1057,11 @@ export const db = {
     }
 
     const store = loadStore();
-    const rtj = store.rtj.find(r => r.id === id);
+    const rtj = store.rtj.find(r => String(r.id) === String(id));
     if (!rtj) return null;
 
-    const history = store.history
-      .filter(h => h.rtj_id === id)
+    const history = (store.history || [])
+      .filter(h => String(h.rtj_id) === String(id))
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     return { ...rtj, history };
@@ -1077,7 +1124,7 @@ export const db = {
 
   async updateRTJ(id, data, user) {
     const store = loadStore();
-    const index = store.rtj.findIndex(r => r.id === id);
+    const index = store.rtj.findIndex(r => String(r.id) === String(id));
     if (index === -1) return null;
 
     const oldRecord = { ...store.rtj[index] };
@@ -1097,6 +1144,7 @@ export const db = {
     store.rtj[index] = updatedRTJ;
 
     if (oldStatus !== newStatus || data.catatan_perubahan) {
+      store.history = store.history || [];
       store.history.push({
         id: uuidv4(),
         rtj_id: id,

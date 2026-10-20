@@ -25,9 +25,10 @@ import api from '../api/client';
 
 // ─── Konstanta Kategori Q ─────────────────────────────────────────────────────
 const Q_CATEGORIES = [
+  { key: 'FIR', label: 'FIR', desc: 'Fix It Right (FIR)', color: 'from-emerald-600 to-emerald-700', bg: 'bg-emerald-600', light: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-700', badge: 'bg-emerald-600' },
   { key: 'Q1', label: 'Q1', desc: 'Kualitas Hasil Service', color: 'from-blue-600 to-blue-700', bg: 'bg-blue-600', light: 'bg-blue-50 border-blue-200', text: 'text-blue-700', badge: 'bg-blue-600' },
   { key: 'Q2', label: 'Q2', desc: 'Ketepatan Pengiriman Servis', color: 'from-violet-600 to-violet-700', bg: 'bg-violet-600', light: 'bg-violet-50 border-violet-200', text: 'text-violet-700', badge: 'bg-violet-600' },
-  { key: 'Q3', label: 'Q3', desc: 'Lama Waktu Servis', color: 'from-emerald-600 to-emerald-700', bg: 'bg-emerald-600', light: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-700', badge: 'bg-emerald-600' },
+  { key: 'Q3', label: 'Q3', desc: 'Lama Waktu Servis', color: 'from-teal-600 to-teal-700', bg: 'bg-teal-600', light: 'bg-teal-50 border-teal-200', text: 'text-teal-700', badge: 'bg-teal-600' },
   { key: 'Q4', label: 'Q4', desc: 'FIR Total', color: 'from-amber-500 to-amber-600', bg: 'bg-amber-500', light: 'bg-amber-50 border-amber-200', text: 'text-amber-700', badge: 'bg-amber-500' },
   { key: 'Q5', label: 'Q5', desc: 'Jumlah PSFU', color: 'from-rose-600 to-rose-700', bg: 'bg-rose-600', light: 'bg-rose-50 border-rose-200', text: 'text-rose-700', badge: 'bg-rose-600' },
   { key: 'Q6', label: 'Q6', desc: 'Perlu Di-Call', color: 'from-slate-600 to-slate-700', bg: 'bg-slate-600', light: 'bg-slate-50 border-slate-200', text: 'text-slate-700', badge: 'bg-slate-600' },

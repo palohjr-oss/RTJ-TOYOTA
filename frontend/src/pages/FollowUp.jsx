@@ -125,7 +125,7 @@ function EditRowModal({ record, onClose, onSave }) {
             <div>
               <label className={labelClass}>Kategori Q</label>
               <select className={fieldClass} value={form.kategori_q} onChange={e => setForm(f => ({...f, kategori_q: e.target.value}))}>
-                {['Q1','Q2','Q3','Q4','Q5','Q6'].map(q => <option key={q}>{q}</option>)}
+                {['FIR','Q1','Q2','Q3','Q4','Q5','Q6'].map(q => <option key={q}>{q}</option>)}
               </select>
             </div>
             <div>
@@ -479,7 +479,7 @@ export default function FollowUp() {
                 className="w-full text-xs rounded-xl border-slate-200 bg-slate-50 p-2 border font-bold text-slate-800"
               >
                 <option value="ALL">Semua Kategori</option>
-                {['Q1','Q2','Q3','Q4','Q5','Q6'].map(q => <option key={q}>{q}</option>)}
+                {['FIR','Q1','Q2','Q3','Q4','Q5','Q6'].map(q => <option key={q}>{q}</option>)}
               </select>
             </div>
 
