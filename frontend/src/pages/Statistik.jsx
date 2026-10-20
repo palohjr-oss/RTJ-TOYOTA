@@ -15,7 +15,10 @@ import {
   Minus,
   Building2,
   Filter,
-  ClipboardList
+  ClipboardList,
+  PhoneCall,
+  Truck,
+  Search
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import api from '../api/client';
@@ -179,11 +182,12 @@ function CustomerDetailModal({ record, onClose, qCat }) {
 }
 
 // ─── Q Detail Table Modal ──────────────────────────────────────────────────────
-function QDetailModal({ qKey, records, onClose }) {
+function QDetailModal({ qKey, cardInfo, records, onClose }) {
   const [page, setPage] = useState(1);
   const [selectedRecord, setSelectedRecord] = useState(null);
   const limit = 10;
-  const cat = Q_CATEGORIES.find(c => c.key === qKey) || Q_CATEGORIES[0];
+  const title = cardInfo?.title || cardInfo?.desc || qKey;
+  const headerBg = cardInfo?.bg || 'bg-slate-900';
   const totalPages = Math.ceil(records.length / limit) || 1;
   const paginated = records.slice((page - 1) * limit, page * limit);
 
@@ -199,13 +203,13 @@ function QDetailModal({ qKey, records, onClose }) {
       <div className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
         <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col border border-slate-200">
           {/* Header */}
-          <div className={`bg-gradient-to-r ${cat.color} p-5 rounded-t-3xl text-white flex items-center justify-between shrink-0`}>
+          <div className={`${headerBg} p-5 rounded-t-3xl text-white flex items-center justify-between shrink-0`}>
             <div>
               <div className="flex items-center space-x-2">
                 <span className="text-xs font-bold bg-white/20 px-2.5 py-0.5 rounded-full uppercase">
-                  {cat.key}
+                  {qKey}
                 </span>
-                <span className="text-sm font-bold opacity-90">{cat.desc}</span>
+                <span className="text-sm font-bold opacity-90">{title}</span>
               </div>
               <p className="text-2xl font-black mt-1">{records.length} Unit</p>
               <p className="text-xs opacity-75 mt-0.5">Klik unit untuk melihat detail customer & progres recovery</p>
@@ -414,19 +418,84 @@ export default function Statistik() {
   const q3PuasPct = totalUnits > 0 ? Math.round((q3Puas / totalUnits) * 100) : 0;
   const q3TidakPuasPct = totalUnits > 0 ? Math.round((q3TidakPuas / totalUnits) * 100) : 0;
 
+  // ── Dealer Question Cards (Gambar 2 Bottom Concept) ───────────────────────
+  const dealerCards = useMemo(() => [
+    {
+      key: 'Q1',
+      label: 'Q1',
+      title: 'Total Unit Masuk',
+      count: totalUnits,
+      bg: 'bg-[#0b3c70]',
+      icon: Truck,
+      filterFn: (records) => records,
+    },
+    {
+      key: 'Q2',
+      label: 'Q2',
+      title: 'Unit Di-Follow Up',
+      count: totalUnits,
+      bg: 'bg-[#2f2762]',
+      icon: Search,
+      filterFn: (records) => records,
+    },
+    {
+      key: 'Q3',
+      label: 'Q3',
+      title: 'Sudah Di Call',
+      count: totalTerhubung,
+      bg: 'bg-[#18532c]',
+      icon: PhoneCall,
+      filterFn: (records) => records.filter(r => r.status_rtj === 'Completed' || r.status_rtj === 'Rescheduled'),
+    },
+    {
+      key: 'Q4',
+      label: 'Q4',
+      title: 'FIR Total',
+      count: totalFIR,
+      bg: 'bg-[#0f4d45]',
+      icon: CheckCircle2,
+      filterFn: (records) => records.filter(r => r.status_rtj === 'Completed'),
+    },
+    {
+      key: 'Q5',
+      label: 'Q5',
+      title: 'Jumlah PSFU',
+      count: Math.min(5, totalUnits),
+      bg: 'bg-[#964b15]',
+      icon: ClipboardList,
+      filterFn: (records) => {
+        const q5 = records.filter(r => r.kategori_q === 'Q5');
+        return q5.length > 0 ? q5 : records.slice(0, Math.min(5, records.length));
+      },
+    },
+    {
+      key: 'Q6',
+      label: 'Q6',
+      title: 'Perlu DiFollow-Up',
+      count: totalPending,
+      bg: 'bg-[#6b1d42]',
+      icon: PhoneCall,
+      filterFn: (records) => records.filter(r => r.status_rtj === 'Pending' || r.status_rtj === 'Scheduled' || !r.status_rtj),
+    },
+  ], [totalUnits, totalTerhubung, totalFIR, totalPending]);
+
+  const activeCard = dealerCards.find(c => c.key === activeQ) || dealerCards[0];
+
   // ── Displayed Records for Unit Table ──────────────────────────────────────
   const displayRecords = useMemo(() => {
-    if (activeQ === 'ALL') return allRecords;
-    return allRecords.filter(r => (r.kategori_q || 'Q1') === activeQ);
-  }, [allRecords, activeQ]);
+    if (activeCard && activeCard.filterFn) {
+      return activeCard.filterFn(allRecords);
+    }
+    return allRecords;
+  }, [allRecords, activeCard]);
 
   // ── Export Excel ──────────────────────────────────────────────────────────
   const handleExportExcel = () => {
-    const rows = qStats.map(q => ({
-      'Kategori Q': q.key,
-      'Deskripsi': q.desc,
-      'Jumlah Unit': q.count,
-      'Persentase': totalUnits > 0 ? ((q.count / totalUnits) * 100).toFixed(1) + '%' : '0%',
+    const rows = dealerCards.map(c => ({
+      'Kategori': c.label,
+      'Deskripsi': c.title,
+      'Jumlah Unit': c.count,
+      'Persentase': totalUnits > 0 ? ((c.count / totalUnits) * 100).toFixed(1) + '%' : '0%',
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
@@ -440,7 +509,8 @@ export default function Statistik() {
       {drilldownQ && (
         <QDetailModal
           qKey={drilldownQ}
-          records={qStats.find(q => q.key === drilldownQ)?.records || []}
+          cardInfo={dealerCards.find(c => c.key === drilldownQ) || Q_CATEGORIES.find(c => c.key === drilldownQ)}
+          records={dealerCards.find(c => c.key === drilldownQ)?.filterFn(allRecords) || allRecords}
           onClose={() => setDrilldownQ(null)}
         />
       )}
@@ -737,144 +807,146 @@ export default function Statistik() {
           </div>
         </div>
 
-        {/* ── Unit List & 5-Step Recovery Process Flow ── */}
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-          {/* Header & Category Pills */}
-          <div className="p-5 border-b border-slate-100 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        {/* ── 6 Kategori Q Cards (Gambar 2 Bottom Concept) ── */}
+        <div className="space-y-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {dealerCards.map(card => {
+              const isSelected = activeQ === card.key;
+              const Icon = card.icon;
+              return (
+                <button
+                  key={card.key}
+                  type="button"
+                  onClick={() => setActiveQ(card.key)}
+                  className={`w-full ${card.bg} text-white p-5 rounded-2xl shadow-md text-left transition-all duration-200 relative overflow-hidden flex flex-col justify-between group cursor-pointer ${
+                    isSelected
+                      ? 'ring-4 ring-offset-2 ring-slate-900 shadow-2xl scale-[1.02]'
+                      : 'hover:scale-[1.01] hover:shadow-lg opacity-90 hover:opacity-100'
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <span className="text-base font-black tracking-wider uppercase text-white/90">
+                      {card.label}
+                    </span>
+                    <Icon className="w-8 h-8 text-white/90 group-hover:scale-110 transition-transform" />
+                  </div>
+                  <div className="mt-3">
+                    <div className="text-4xl font-black text-white tracking-tight">
+                      {isLoading ? '…' : card.count}
+                    </div>
+                    <div className="text-xs sm:text-sm font-bold text-white/95 mt-1.5 tracking-wide">
+                      {card.title}
+                    </div>
+                  </div>
+                  {isSelected && (
+                    <div className="absolute top-3 right-3 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-white animate-pulse" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* ── Unit List & 5-Step Recovery Process Flow ── */}
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+            <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h2 className="text-sm font-black text-slate-900 flex items-center space-x-2">
-                  <span>Alur Proses Recovery Unit RTJ</span>
+                <div className="flex items-center space-x-2">
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-black ${activeCard.bg} text-white`}>
+                    {activeCard.label}
+                  </span>
+                  <h2 className="text-sm font-black text-slate-900">
+                    Alur Proses Recovery Unit RTJ — {activeCard.title}
+                  </h2>
                   <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600">
                     {displayRecords.length} Unit
                   </span>
-                </h2>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Klik baris unit untuk melihat profil customer lengkap & progres 5 tahapan recovery.
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Menampilkan unit untuk kategori <b>{activeCard.label} ({activeCard.title})</b>. Klik baris unit untuk melihat detail profil customer & 5 tahapan recovery.
                 </p>
               </div>
 
-              {activeQ !== 'ALL' && (
+              <button
+                onClick={() => setDrilldownQ(activeQ)}
+                className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-sm active:scale-95 self-start sm:self-auto"
+              >
+                <span>Buka di Modal Pop-up</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* 5-Column Process Flow Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left border-collapse whitespace-nowrap">
+                <thead>
+                  <tr className="bg-slate-900 text-white text-[10px] uppercase tracking-wider">
+                    <th className="px-3 py-2.5 text-center font-black w-10">No</th>
+                    <th className="px-3 py-2.5 font-black">No. Polisi / Unit</th>
+                    <th className="px-3 py-2.5 font-black">Nama Customer</th>
+                    <th className="px-3 py-2.5 font-black text-center">Status RTJ</th>
+                    <th className="px-3 py-2.5 font-black text-center">1. Recovery</th>
+                    <th className="px-3 py-2.5 font-black text-center">2. Step Intern Discuss</th>
+                    <th className="px-3 py-2.5 font-black text-center">3. List Confirm</th>
+                    <th className="px-3 py-2.5 font-black text-center">4. Recovery Action</th>
+                    <th className="px-3 py-2.5 font-black text-center">5. Tindak Lanjut</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
+                  {isLoading ? (
+                    <tr><td colSpan="9" className="text-center py-12 text-slate-400">Memuat data unit...</td></tr>
+                  ) : displayRecords.length === 0 ? (
+                    <tr><td colSpan="9" className="text-center py-12 text-slate-400 font-semibold">
+                      Tidak ada unit dalam kategori {activeCard.label} ({activeCard.title}).
+                    </td></tr>
+                  ) : displayRecords.slice(0, 15).map((r, idx) => {
+                    const steps = deriveSteps(r);
+                    return (
+                      <tr
+                        key={r.id || idx}
+                        className="hover:bg-slate-50 cursor-pointer transition-colors"
+                        onClick={() => setInlineCustomer(r)}
+                      >
+                        <td className="px-3 py-2.5 text-center font-bold text-slate-400">{idx + 1}</td>
+                        <td className="px-3 py-2.5">
+                          <div className="font-black text-blue-700">{r.no_polisi || '-'}</div>
+                          <div className="text-[10px] text-slate-400">{r.model || ''}</div>
+                        </td>
+                        <td className="px-3 py-2.5 font-semibold text-slate-900 max-w-[170px] truncate">
+                          {r.nama_customer || '-'}
+                        </td>
+                        <td className="px-3 py-2.5 text-center">
+                          <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
+                            r.status_rtj === 'Completed' ? 'bg-emerald-100 text-emerald-800' :
+                            r.status_rtj === 'Rescheduled' ? 'bg-violet-100 text-violet-800' :
+                            r.status_rtj === 'Scheduled' ? 'bg-blue-100 text-blue-800' :
+                            'bg-amber-100 text-amber-800'
+                          }`}>
+                            {r.status_rtj || 'Pending'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2.5 text-center"><StepBadge status={steps.recovery} /></td>
+                        <td className="px-3 py-2.5 text-center"><StepBadge status={steps.stepIntern} /></td>
+                        <td className="px-3 py-2.5 text-center"><StepBadge status={steps.listConfirm} /></td>
+                        <td className="px-3 py-2.5 text-center"><StepBadge status={steps.recoveryAction} /></td>
+                        <td className="px-3 py-2.5 text-center"><StepBadge status={steps.tindakLanjut} /></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {displayRecords.length > 15 && (
+              <div className="px-5 py-3 border-t border-slate-100 text-center bg-slate-50">
                 <button
                   onClick={() => setDrilldownQ(activeQ)}
-                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-sm active:scale-95 self-start sm:self-auto"
+                  className="text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline"
                 >
-                  <span>Buka di Modal Pop-up</span>
-                  <ChevronRight className="w-4 h-4" />
+                  Menampilkan 15 dari {displayRecords.length} unit. Klik di sini untuk melihat semua di modal pop-up →
                 </button>
-              )}
-            </div>
-
-            {/* Category Selector Tabs */}
-            <div className="flex flex-wrap gap-2 pt-1">
-              {Q_CATEGORIES.map(cat => {
-                const count = qStats.find(q => q.key === cat.key)?.count || 0;
-                const isSelected = activeQ === cat.key;
-                return (
-                  <button
-                    key={cat.key}
-                    type="button"
-                    onClick={() => setActiveQ(cat.key)}
-                    className={`flex items-center space-x-2 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-                      isSelected
-                        ? `${cat.bg} text-white shadow-md scale-105`
-                        : `${cat.light} ${cat.text} hover:scale-102 hover:shadow-sm`
-                    }`}
-                  >
-                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-black ${isSelected ? 'bg-white/20 text-white' : `${cat.bg} text-white`}`}>
-                      {cat.key}
-                    </span>
-                    <span>{cat.desc}</span>
-                    <span className={`text-[11px] font-black px-1.5 py-0.2 rounded-full ${isSelected ? 'bg-white text-slate-900' : 'bg-slate-200/80 text-slate-700'}`}>
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
-              <button
-                type="button"
-                onClick={() => setActiveQ('ALL')}
-                className={`flex items-center space-x-2 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-                  activeQ === 'ALL'
-                    ? 'bg-slate-900 text-white shadow-md scale-105'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200 hover:scale-102'
-                }`}
-              >
-                <span>Semua RTJ</span>
-                <span className={`text-[11px] font-black px-1.5 py-0.2 rounded-full ${activeQ === 'ALL' ? 'bg-white text-slate-900' : 'bg-slate-300 text-slate-800'}`}>
-                  {totalUnits}
-                </span>
-              </button>
-            </div>
+              </div>
+            )}
           </div>
-
-          {/* 5-Column Process Flow Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left border-collapse whitespace-nowrap">
-              <thead>
-                <tr className="bg-slate-900 text-white text-[10px] uppercase tracking-wider">
-                  <th className="px-3 py-2.5 text-center font-black w-10">No</th>
-                  <th className="px-3 py-2.5 font-black">No. Polisi / Unit</th>
-                  <th className="px-3 py-2.5 font-black">Nama Customer</th>
-                  <th className="px-3 py-2.5 font-black text-center">Kategori Q</th>
-                  <th className="px-3 py-2.5 font-black text-center">1. Recovery</th>
-                  <th className="px-3 py-2.5 font-black text-center">2. Step Intern Discuss</th>
-                  <th className="px-3 py-2.5 font-black text-center">3. List Confirm</th>
-                  <th className="px-3 py-2.5 font-black text-center">4. Recovery Action</th>
-                  <th className="px-3 py-2.5 font-black text-center">5. Tindak Lanjut</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
-                {isLoading ? (
-                  <tr><td colSpan="9" className="text-center py-12 text-slate-400">Memuat data unit...</td></tr>
-                ) : displayRecords.length === 0 ? (
-                  <tr><td colSpan="9" className="text-center py-12 text-slate-400 font-semibold">
-                    Tidak ada unit dalam kategori yang dipilih.
-                  </td></tr>
-                ) : displayRecords.slice(0, 15).map((r, idx) => {
-                  const steps = deriveSteps(r);
-                  const cat = Q_CATEGORIES.find(c => c.key === (r.kategori_q || 'Q1')) || Q_CATEGORIES[0];
-                  return (
-                    <tr
-                      key={r.id || idx}
-                      className="hover:bg-slate-50 cursor-pointer transition-colors"
-                      onClick={() => setInlineCustomer(r)}
-                    >
-                      <td className="px-3 py-2.5 text-center font-bold text-slate-400">{idx + 1}</td>
-                      <td className="px-3 py-2.5">
-                        <div className="font-black text-blue-700">{r.no_polisi || '-'}</div>
-                        <div className="text-[10px] text-slate-400">{r.model || ''}</div>
-                      </td>
-                      <td className="px-3 py-2.5 font-semibold text-slate-900 max-w-[170px] truncate">
-                        {r.nama_customer || '-'}
-                      </td>
-                      <td className="px-3 py-2.5 text-center">
-                        <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-black ${cat.bg} text-white`}>
-                          {cat.key}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2.5 text-center"><StepBadge status={steps.recovery} /></td>
-                      <td className="px-3 py-2.5 text-center"><StepBadge status={steps.stepIntern} /></td>
-                      <td className="px-3 py-2.5 text-center"><StepBadge status={steps.listConfirm} /></td>
-                      <td className="px-3 py-2.5 text-center"><StepBadge status={steps.recoveryAction} /></td>
-                      <td className="px-3 py-2.5 text-center"><StepBadge status={steps.tindakLanjut} /></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {displayRecords.length > 15 && (
-            <div className="px-5 py-3 border-t border-slate-100 text-center bg-slate-50">
-              <button
-                onClick={() => setDrilldownQ(activeQ === 'ALL' ? 'Q1' : activeQ)}
-                className="text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline"
-              >
-                Menampilkan 15 dari {displayRecords.length} unit. Klik di sini untuk melihat semua di modal pop-up →
-              </button>
-            </div>
-          )}
         </div>
 
       </div>
