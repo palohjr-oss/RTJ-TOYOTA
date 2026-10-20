@@ -304,8 +304,9 @@ export default function Statistik() {
   const [periodeSelesai, setPeriodeSelesai] = useState('');
   const [sa, setSa] = useState('ALL');
   const [appliedFilters, setAppliedFilters] = useState({ sa: 'ALL', periode_mulai: '', periode_selesai: '' });
-  const [activeQ, setActiveQ] = useState(null);   // currently selected Q card (for sidebar highlight)
-  const [drilldownQ, setDrilldownQ] = useState(null); // opens full modal
+  const [activeQ, setActiveQ] = useState('Q1');        // default to Q1 or 'ALL'
+  const [drilldownQ, setDrilldownQ] = useState(null);  // opens full modal
+  const [inlineCustomer, setInlineCustomer] = useState(null); // opens customer detail modal
 
   // ── Fetch filter options ──────────────────────────────────────────────────
   const { data: chartOptionsData } = useQuery({
@@ -371,7 +372,7 @@ export default function Statistik() {
   const handleReset = () => {
     setSa('ALL'); setPeriodeMulai(''); setPeriodeSelesai(''); setSelectedPeriod('ALL');
     setAppliedFilters({ sa: 'ALL', periode_mulai: '', periode_selesai: '' });
-    setActiveQ(null);
+    setActiveQ('Q1');
   };
 
   // ── Compute per-Q counts from Follow-Up records ───────────────────────────
@@ -382,13 +383,42 @@ export default function Statistik() {
     });
   }, [allRecords]);
 
+  // ── Top Summary & Ratio Calculations (Gambar 2 Concept) ───────────────────
   const totalUnits = allRecords.length;
   const totalFIR = allRecords.filter(r => r.status_rtj === 'Completed').length;
-  const totalPending = allRecords.filter(r => r.status_rtj === 'Pending').length;
+  const totalPending = allRecords.filter(r => r.status_rtj === 'Pending' || r.status_rtj === 'Scheduled' || !r.status_rtj).length;
   const totalTerhubung = allRecords.filter(r => r.status_rtj === 'Completed' || r.status_rtj === 'Rescheduled').length;
-  const totalNonFIR = Q_CATEGORIES.slice(0, 6).reduce((acc, c) => acc + qStats.find(q => q.key === c.key)?.count || 0, 0);
 
-  const selectedQData = activeQ ? qStats.find(q => q.key === activeQ) : null;
+  const persentasePengisian = totalUnits > 0 ? Math.round((totalTerhubung / totalUnits) * 100) : 0;
+  const firRatio = totalUnits > 0 ? Math.round((totalFIR / totalUnits) * 100) : 0;
+
+  // ── 3 Questions Breakdown (Rincian Persentase Fix It Right - Gambar 2) ─────
+  // 1. Kualitas Servis (Q1)
+  const q1Recs = allRecords.filter(r => (r.kategori_q || 'Q1') === 'Q1');
+  const q1TidakPuas = q1Recs.length;
+  const q1Puas = Math.max(0, totalUnits - q1TidakPuas);
+  const q1PuasPct = totalUnits > 0 ? Math.round((q1Puas / totalUnits) * 100) : 0;
+  const q1TidakPuasPct = totalUnits > 0 ? Math.round((q1TidakPuas / totalUnits) * 100) : 0;
+
+  // 2. Ketepatan Janji Pengiriman Servis (Q2)
+  const q2Recs = allRecords.filter(r => r.kategori_q === 'Q2');
+  const q2Tidak = q2Recs.length;
+  const q2Ya = Math.max(0, totalUnits - q2Tidak);
+  const q2YaPct = totalUnits > 0 ? Math.round((q2Ya / totalUnits) * 100) : 0;
+  const q2TidakPct = totalUnits > 0 ? Math.round((q2Tidak / totalUnits) * 100) : 0;
+
+  // 3. Lama waktu servis (Q3)
+  const q3Recs = allRecords.filter(r => r.kategori_q === 'Q3');
+  const q3TidakPuas = q3Recs.length;
+  const q3Puas = Math.max(0, totalUnits - q3TidakPuas);
+  const q3PuasPct = totalUnits > 0 ? Math.round((q3Puas / totalUnits) * 100) : 0;
+  const q3TidakPuasPct = totalUnits > 0 ? Math.round((q3TidakPuas / totalUnits) * 100) : 0;
+
+  // ── Displayed Records for Unit Table ──────────────────────────────────────
+  const displayRecords = useMemo(() => {
+    if (activeQ === 'ALL') return allRecords;
+    return allRecords.filter(r => (r.kategori_q || 'Q1') === activeQ);
+  }, [allRecords, activeQ]);
 
   // ── Export Excel ──────────────────────────────────────────────────────────
   const handleExportExcel = () => {
@@ -412,6 +442,15 @@ export default function Statistik() {
           qKey={drilldownQ}
           records={qStats.find(q => q.key === drilldownQ)?.records || []}
           onClose={() => setDrilldownQ(null)}
+        />
+      )}
+
+      {/* Inline Customer Detail Modal */}
+      {inlineCustomer && (
+        <CustomerDetailModal
+          record={inlineCustomer}
+          qCat={inlineCustomer.kategori_q || 'Q1'}
+          onClose={() => setInlineCustomer(null)}
         />
       )}
 
@@ -495,189 +534,347 @@ export default function Statistik() {
           </form>
         </div>
 
-        {/* ── Top Summary Cards ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: 'Total Unit Masuk', value: totalUnits, color: 'bg-blue-900', sub: 'Semua kategori Q' },
-            { label: 'Sudah di CALL', value: totalTerhubung, color: 'bg-emerald-900', sub: 'Terhubung' },
-            { label: 'FIR Total', value: totalFIR, color: 'bg-teal-900', sub: 'Fix It Right (Puas)' },
-            { label: 'Perlu Di-Follow Up', value: totalPending, color: 'bg-rose-950', sub: 'Belum terhubung' },
-          ].map(c => (
-            <div key={c.label} className={`${c.color} text-white p-4 rounded-2xl shadow-md`}>
-              <span className="text-[10px] font-bold uppercase tracking-wider opacity-70 block">{c.label}</span>
-              <div className="text-3xl font-black mt-1">{isLoading ? '…' : c.value}</div>
-              <span className="text-[10px] opacity-60">{c.sub}</span>
+        {/* ── Top Summary Cards (Gambar 2 Concept) ── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* 1. JUMLAH PSFU */}
+          <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <div className="text-4xl font-extrabold text-slate-900 tracking-tight">
+                {isLoading ? '…' : totalUnits}
+              </div>
+              <div className="flex items-center space-x-1.5 mt-2 text-xs font-bold text-slate-700 uppercase tracking-wider">
+                <span>JUMLAH PSFU</span>
+                <span className="w-3.5 h-3.5 rounded-full border border-slate-400 text-slate-400 text-[9px] font-bold inline-flex items-center justify-center">i</span>
+              </div>
             </div>
-          ))}
-        </div>
-
-        {/* ── Q1-Q6 Grid + Detail Table ── */}
-        <div className="flex flex-col lg:flex-row gap-5">
-          {/* Left: Q Cards */}
-          <div className="lg:w-80 shrink-0">
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-slate-100">
-                <h2 className="text-sm font-black text-slate-900">Kategori Non FIR</h2>
-                <p className="text-[11px] text-slate-500 mt-0.5">Klik kategori untuk melihat detail unit</p>
-              </div>
-              <div className="p-3 space-y-2">
-                {qStats.map(q => {
-                  const isActive = activeQ === q.key;
-                  return (
-                    <button
-                      key={q.key}
-                      onClick={() => {
-                        setActiveQ(isActive ? null : q.key);
-                      }}
-                      className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl border-2 transition-all duration-200 text-left ${
-                        isActive
-                          ? `${q.bg} border-transparent text-white shadow-lg scale-[1.01]`
-                          : `bg-white ${q.light} hover:scale-[1.01] hover:shadow-md ${q.text}`
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-base ${
-                          isActive ? 'bg-white/20 text-white' : `${q.bg} text-white`
-                        }`}>
-                          {q.key}
-                        </div>
-                        <div>
-                          <div className={`text-xs font-black ${isActive ? 'text-white' : q.text}`}>{q.desc}</div>
-                          <div className={`text-[10px] mt-0.5 ${isActive ? 'text-white/70' : 'text-slate-400'}`}>
-                            {q.count} Unit
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <span className={`text-xl font-black ${isActive ? 'text-white' : q.text}`}>{q.count}</span>
-                        <ChevronRight className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+            <div className="w-12 h-12 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-sm shrink-0">
+              <ClipboardList className="w-6 h-6" />
             </div>
           </div>
 
-          {/* Right: Detail Table or Placeholder */}
-          <div className="flex-1 min-w-0">
-            {!activeQ ? (
-              <div className="h-full min-h-[400px] bg-white rounded-3xl border border-slate-200 flex flex-col items-center justify-center text-center p-10 shadow-sm">
-                <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
-                  <Filter className="w-8 h-8 text-slate-300" />
+          {/* 2. PERLU DIFOLLOW-UP */}
+          <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <div className="text-4xl font-extrabold text-slate-900 tracking-tight">
+                {isLoading ? '…' : totalPending}
+              </div>
+              <div className="flex items-center space-x-1.5 mt-2 text-xs font-bold text-slate-700 uppercase tracking-wider">
+                <span>PERLU DIFOLLOW-UP</span>
+                <span className="w-3.5 h-3.5 rounded-full border border-slate-400 text-slate-400 text-[9px] font-bold inline-flex items-center justify-center">i</span>
+              </div>
+            </div>
+            <div className="w-12 h-12 rounded-lg bg-amber-500 flex items-center justify-center text-white shadow-sm shrink-0">
+              <Phone className="w-6 h-6" />
+            </div>
+          </div>
+
+          {/* 3. PERSENTASE PENGISIAN PSFU */}
+          <div className="bg-[#c50000] text-white rounded-xl p-5 shadow-sm flex flex-col justify-between">
+            <div className="flex items-start justify-between">
+              <div className="text-4xl font-black tracking-tight">{persentasePengisian}%</div>
+              <span className="border border-white/60 text-[10px] font-black uppercase px-2 py-0.5 rounded text-white tracking-wider">
+                {persentasePengisian >= 70 ? 'TERCAPAI' : 'WARNING'}
+              </span>
+            </div>
+            <div className="mt-3">
+              <div className="flex items-center space-x-1.5 text-xs font-bold uppercase tracking-wider text-white">
+                <span>PERSENTASE PENGISIAN PSFU</span>
+                <span className="w-3.5 h-3.5 rounded-full border border-white/60 text-[9px] font-bold inline-flex items-center justify-center">i</span>
+              </div>
+              <p className="text-[11px] text-white/90 font-medium mt-0.5">
+                {persentasePengisian >= 70 ? 'Mencapai target 70%' : 'Tidak mencapai target 70%'}
+              </p>
+            </div>
+          </div>
+
+          {/* 4. FIX IT RIGHT RATIO */}
+          <div className="bg-[#c50000] text-white rounded-xl p-5 shadow-sm flex flex-col justify-between">
+            <div className="flex items-start justify-between">
+              <div className="text-4xl font-black tracking-tight">{firRatio}%</div>
+              <span className="border border-white/60 text-[10px] font-black uppercase px-2 py-0.5 rounded text-white tracking-wider">
+                {firRatio >= 75 ? 'TERCAPAI' : 'WARNING'}
+              </span>
+            </div>
+            <div className="mt-3">
+              <div className="flex items-center space-x-1.5 text-xs font-bold uppercase tracking-wider text-white">
+                <span>FIX IT RIGHT RATIO</span>
+                <span className="w-3.5 h-3.5 rounded-full border border-white/60 text-[9px] font-bold inline-flex items-center justify-center">i</span>
+              </div>
+              <p className="text-[11px] text-white/90 font-medium mt-0.5">
+                {firRatio >= 75 ? 'Mencapai target 75%' : 'Tidak mencapai target 75%'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Rincian Persentase Fix It Right (Gambar 2 Concept) ── */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-extrabold text-slate-900 tracking-tight">
+                Rincian Persentase Fix It Right
+              </h2>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Klik kartu pertanyaan di bawah untuk memfilter daftar unit & alur recovery RTJ terkait
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-slate-100">
+            {/* 1. Kualitas Servis (Q1) */}
+            <div
+              onClick={() => setActiveQ('Q1')}
+              className={`p-6 cursor-pointer transition-all duration-200 hover:bg-slate-50 relative ${
+                activeQ === 'Q1' ? 'bg-blue-50/60 ring-2 ring-blue-500 ring-inset' : ''
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-black text-slate-900 uppercase tracking-wide">Kualitas Servis</h3>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-700">Q1</span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1 min-h-[34px] leading-snug">
+                Apakah Anda puas dengan kualitas hasil pengerjaan anda setelah servis?
+              </p>
+
+              <div className="mt-5 flex items-center justify-between">
+                <div className="text-4xl font-extrabold text-slate-900 tracking-tight">
+                  {q1PuasPct}%
                 </div>
-                <h3 className="text-base font-black text-slate-700">Pilih Kategori Q</h3>
-                <p className="text-sm text-slate-400 mt-2 max-w-sm">
-                  Klik salah satu kategori Q1–Q6 di sebelah kiri untuk melihat daftar unit beserta alur proses recovery-nya.
+                <div className="space-y-1.5 text-right">
+                  <div>
+                    <div className="flex items-center justify-end space-x-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-blue-600 inline-block"></span>
+                      <span className="text-xs font-bold text-slate-800">Puas — {q1PuasPct}%</span>
+                    </div>
+                    <div className="text-[11px] text-slate-400 font-medium">{q1Puas} Pelanggan</div>
+                  </div>
+                  <div className="pt-1">
+                    <div className="flex items-center justify-end space-x-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>
+                      <span className="text-xs font-bold text-slate-800">Tidak Puas — {q1TidakPuasPct}%</span>
+                    </div>
+                    <div className="text-[11px] text-slate-400 font-medium">{q1TidakPuas} Pelanggan</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. Ketepatan Janji Pengiriman Servis (Q2) */}
+            <div
+              onClick={() => setActiveQ('Q2')}
+              className={`p-6 cursor-pointer transition-all duration-200 hover:bg-slate-50 relative ${
+                activeQ === 'Q2' ? 'bg-violet-50/60 ring-2 ring-violet-500 ring-inset' : ''
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-black text-slate-900 uppercase tracking-wide">Ketepatan Janji Pengiriman Servis</h3>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-violet-100 text-violet-700">Q2</span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1 min-h-[34px] leading-snug">
+                Apakah kendaraan Anda dikirim tepat waktu sesuai janji dari Service Advisor di cabang kami
+              </p>
+
+              <div className="mt-5 flex items-center justify-between">
+                <div className="text-4xl font-extrabold text-slate-900 tracking-tight">
+                  {q2YaPct}%
+                </div>
+                <div className="space-y-1.5 text-right">
+                  <div>
+                    <div className="flex items-center justify-end space-x-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-blue-600 inline-block"></span>
+                      <span className="text-xs font-bold text-slate-800">Ya — {q2YaPct}%</span>
+                    </div>
+                    <div className="text-[11px] text-slate-400 font-medium">{q2Ya} Pelanggan</div>
+                  </div>
+                  <div className="pt-1">
+                    <div className="flex items-center justify-end space-x-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>
+                      <span className="text-xs font-bold text-slate-800">Tidak — {q2TidakPct}%</span>
+                    </div>
+                    <div className="text-[11px] text-slate-400 font-medium">{q2Tidak} Pelanggan</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Lama waktu servis (Q3) */}
+            <div
+              onClick={() => setActiveQ('Q3')}
+              className={`p-6 cursor-pointer transition-all duration-200 hover:bg-slate-50 relative ${
+                activeQ === 'Q3' ? 'bg-emerald-50/60 ring-2 ring-emerald-500 ring-inset' : ''
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-black text-slate-900 uppercase tracking-wide">Lama waktu servis</h3>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">Q3</span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1 min-h-[34px] leading-snug">
+                Apakah Anda puas dengan durasi waktu yang dibutuhkan untuk servis
+              </p>
+
+              <div className="mt-5 flex items-center justify-between">
+                <div className="text-4xl font-extrabold text-slate-900 tracking-tight">
+                  {q3PuasPct}%
+                </div>
+                <div className="space-y-1.5 text-right">
+                  <div>
+                    <div className="flex items-center justify-end space-x-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-blue-600 inline-block"></span>
+                      <span className="text-xs font-bold text-slate-800">Puas — {q3PuasPct}%</span>
+                    </div>
+                    <div className="text-[11px] text-slate-400 font-medium">{q3Puas} Pelanggan</div>
+                  </div>
+                  <div className="pt-1">
+                    <div className="flex items-center justify-end space-x-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>
+                      <span className="text-xs font-bold text-slate-800">Tidak Puas — {q3TidakPuasPct}%</span>
+                    </div>
+                    <div className="text-[11px] text-slate-400 font-medium">{q3TidakPuas} Pelanggan</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Unit List & 5-Step Recovery Process Flow ── */}
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+          {/* Header & Category Pills */}
+          <div className="p-5 border-b border-slate-100 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-black text-slate-900 flex items-center space-x-2">
+                  <span>Alur Proses Recovery Unit RTJ</span>
+                  <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                    {displayRecords.length} Unit
+                  </span>
+                </h2>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Klik baris unit untuk melihat profil customer lengkap & progres 5 tahapan recovery.
                 </p>
               </div>
-            ) : (
-              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-                {/* Table Header */}
-                {(() => {
-                  const q = qStats.find(q => q.key === activeQ);
-                  return (
-                    <>
-                      <div className={`bg-gradient-to-r ${q.color} px-5 py-4 text-white flex items-center justify-between`}>
-                        <div>
-                          <div className="flex items-center space-x-2">
-                            <span className="text-xs font-bold bg-white/20 px-2 py-0.5 rounded-full uppercase">{q.key}</span>
-                            <span className="text-sm font-bold opacity-90">{q.desc}</span>
-                          </div>
-                          <p className="text-2xl font-black mt-1">{q.count} Unit</p>
-                          <p className="text-xs opacity-70 mt-0.5">Klik baris untuk detail customer & progres recovery</p>
-                        </div>
-                        <button
-                          onClick={() => setDrilldownQ(activeQ)}
-                          className="flex items-center space-x-1.5 px-3 py-2 bg-white/20 hover:bg-white/30 rounded-xl text-xs font-bold transition-colors"
-                        >
-                          <span>Tampilkan Semua</span>
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
-                      </div>
 
-                      {/* 5-column process header */}
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-xs text-left border-collapse whitespace-nowrap">
-                          <thead>
-                            <tr className={`${q.bg} text-white text-[10px] uppercase tracking-wider`}>
-                              <th className="px-3 py-2.5 text-center font-black w-10">No</th>
-                              <th className="px-3 py-2.5 font-black">No. Polisi / Unit</th>
-                              <th className="px-3 py-2.5 font-black">Nama Customer</th>
-                              <th className="px-3 py-2.5 font-black text-center">Recovery</th>
-                              <th className="px-3 py-2.5 font-black text-center">Step Intern Discuss</th>
-                              <th className="px-3 py-2.5 font-black text-center">List Confirm</th>
-                              <th className="px-3 py-2.5 font-black text-center">Recovery Action</th>
-                              <th className="px-3 py-2.5 font-black text-center">Tindak Lanjut</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
-                            {isLoading ? (
-                              <tr><td colSpan="8" className="text-center py-10 text-slate-400">Memuat data...</td></tr>
-                            ) : q.records.length === 0 ? (
-                              <tr><td colSpan="8" className="text-center py-10 text-slate-400 font-semibold">
-                                Tidak ada unit dalam kategori {q.key}
-                              </td></tr>
-                            ) : q.records.slice(0, 10).map((r, idx) => {
-                              const steps = deriveSteps(r);
-                              return (
-                                <tr
-                                  key={r.id || idx}
-                                  className="hover:bg-slate-50 cursor-pointer transition-colors"
-                                  onClick={() => setDrilldownQ(activeQ)}
-                                >
-                                  <td className="px-3 py-2 text-center font-bold text-slate-400">{idx + 1}</td>
-                                  <td className="px-3 py-2">
-                                    <div className="font-black text-blue-700">{r.no_polisi || '-'}</div>
-                                    <div className="text-[10px] text-slate-400">{r.model || ''}</div>
-                                  </td>
-                                  <td className="px-3 py-2 font-semibold text-slate-900 max-w-[160px] truncate">
-                                    {r.nama_customer || '-'}
-                                  </td>
-                                  <td className="px-3 py-2 text-center"><StepBadge status={steps.recovery} /></td>
-                                  <td className="px-3 py-2 text-center"><StepBadge status={steps.stepIntern} /></td>
-                                  <td className="px-3 py-2 text-center"><StepBadge status={steps.listConfirm} /></td>
-                                  <td className="px-3 py-2 text-center"><StepBadge status={steps.recoveryAction} /></td>
-                                  <td className="px-3 py-2 text-center"><StepBadge status={steps.tindakLanjut} /></td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
+              {activeQ !== 'ALL' && (
+                <button
+                  onClick={() => setDrilldownQ(activeQ)}
+                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-sm active:scale-95 self-start sm:self-auto"
+                >
+                  <span>Buka di Modal Pop-up</span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              )}
+            </div>
 
-                      {q.records.length > 10 && (
-                        <div className="px-5 py-3 border-t border-slate-100 text-center">
-                          <button
-                            onClick={() => setDrilldownQ(activeQ)}
-                            className={`text-xs font-bold ${q.text} hover:underline`}
-                          >
-                            Tampilkan semua {q.records.length} unit →
-                          </button>
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
-              </div>
-            )}
+            {/* Category Selector Tabs */}
+            <div className="flex flex-wrap gap-2 pt-1">
+              {Q_CATEGORIES.map(cat => {
+                const count = qStats.find(q => q.key === cat.key)?.count || 0;
+                const isSelected = activeQ === cat.key;
+                return (
+                  <button
+                    key={cat.key}
+                    type="button"
+                    onClick={() => setActiveQ(cat.key)}
+                    className={`flex items-center space-x-2 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                      isSelected
+                        ? `${cat.bg} text-white shadow-md scale-105`
+                        : `${cat.light} ${cat.text} hover:scale-102 hover:shadow-sm`
+                    }`}
+                  >
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-black ${isSelected ? 'bg-white/20 text-white' : `${cat.bg} text-white`}`}>
+                      {cat.key}
+                    </span>
+                    <span>{cat.desc}</span>
+                    <span className={`text-[11px] font-black px-1.5 py-0.2 rounded-full ${isSelected ? 'bg-white text-slate-900' : 'bg-slate-200/80 text-slate-700'}`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => setActiveQ('ALL')}
+                className={`flex items-center space-x-2 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                  activeQ === 'ALL'
+                    ? 'bg-slate-900 text-white shadow-md scale-105'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200 hover:scale-102'
+                }`}
+              >
+                <span>Semua RTJ</span>
+                <span className={`text-[11px] font-black px-1.5 py-0.2 rounded-full ${activeQ === 'ALL' ? 'bg-white text-slate-900' : 'bg-slate-300 text-slate-800'}`}>
+                  {totalUnits}
+                </span>
+              </button>
+            </div>
           </div>
-        </div>
 
-        {/* ── Q Summary Grid (Bottom) ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          {qStats.map(q => (
-            <button
-              key={q.key}
-              onClick={() => { setActiveQ(q.key); setDrilldownQ(q.key); }}
-              className={`group relative bg-gradient-to-br ${q.color} text-white p-4 rounded-2xl shadow-md hover:shadow-xl hover:scale-[1.03] transition-all duration-200 active:scale-100 text-left`}
-            >
-              <span className="text-[10px] font-bold uppercase tracking-wider opacity-80 block">{q.key}</span>
-              <div className="text-3xl font-black mt-1">{q.count}</div>
-              <span className="text-[10px] opacity-70 leading-tight mt-1 block">{q.desc}</span>
-              <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 opacity-40 group-hover:opacity-80 group-hover:translate-x-0.5 transition-all" />
-            </button>
-          ))}
+          {/* 5-Column Process Flow Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left border-collapse whitespace-nowrap">
+              <thead>
+                <tr className="bg-slate-900 text-white text-[10px] uppercase tracking-wider">
+                  <th className="px-3 py-2.5 text-center font-black w-10">No</th>
+                  <th className="px-3 py-2.5 font-black">No. Polisi / Unit</th>
+                  <th className="px-3 py-2.5 font-black">Nama Customer</th>
+                  <th className="px-3 py-2.5 font-black text-center">Kategori Q</th>
+                  <th className="px-3 py-2.5 font-black text-center">1. Recovery</th>
+                  <th className="px-3 py-2.5 font-black text-center">2. Step Intern Discuss</th>
+                  <th className="px-3 py-2.5 font-black text-center">3. List Confirm</th>
+                  <th className="px-3 py-2.5 font-black text-center">4. Recovery Action</th>
+                  <th className="px-3 py-2.5 font-black text-center">5. Tindak Lanjut</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
+                {isLoading ? (
+                  <tr><td colSpan="9" className="text-center py-12 text-slate-400">Memuat data unit...</td></tr>
+                ) : displayRecords.length === 0 ? (
+                  <tr><td colSpan="9" className="text-center py-12 text-slate-400 font-semibold">
+                    Tidak ada unit dalam kategori yang dipilih.
+                  </td></tr>
+                ) : displayRecords.slice(0, 15).map((r, idx) => {
+                  const steps = deriveSteps(r);
+                  const cat = Q_CATEGORIES.find(c => c.key === (r.kategori_q || 'Q1')) || Q_CATEGORIES[0];
+                  return (
+                    <tr
+                      key={r.id || idx}
+                      className="hover:bg-slate-50 cursor-pointer transition-colors"
+                      onClick={() => setInlineCustomer(r)}
+                    >
+                      <td className="px-3 py-2.5 text-center font-bold text-slate-400">{idx + 1}</td>
+                      <td className="px-3 py-2.5">
+                        <div className="font-black text-blue-700">{r.no_polisi || '-'}</div>
+                        <div className="text-[10px] text-slate-400">{r.model || ''}</div>
+                      </td>
+                      <td className="px-3 py-2.5 font-semibold text-slate-900 max-w-[170px] truncate">
+                        {r.nama_customer || '-'}
+                      </td>
+                      <td className="px-3 py-2.5 text-center">
+                        <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-black ${cat.bg} text-white`}>
+                          {cat.key}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2.5 text-center"><StepBadge status={steps.recovery} /></td>
+                      <td className="px-3 py-2.5 text-center"><StepBadge status={steps.stepIntern} /></td>
+                      <td className="px-3 py-2.5 text-center"><StepBadge status={steps.listConfirm} /></td>
+                      <td className="px-3 py-2.5 text-center"><StepBadge status={steps.recoveryAction} /></td>
+                      <td className="px-3 py-2.5 text-center"><StepBadge status={steps.tindakLanjut} /></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {displayRecords.length > 15 && (
+            <div className="px-5 py-3 border-t border-slate-100 text-center bg-slate-50">
+              <button
+                onClick={() => setDrilldownQ(activeQ === 'ALL' ? 'Q1' : activeQ)}
+                className="text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline"
+              >
+                Menampilkan 15 dari {displayRecords.length} unit. Klik di sini untuk melihat semua di modal pop-up →
+              </button>
+            </div>
+          )}
         </div>
 
       </div>
