@@ -842,6 +842,71 @@ function saveStore(data) {
   }
 }
 
+function sanitizeRTJForSupabase(item, fallbackRecord = {}) {
+  const allowedCols = [
+    'id', 'no_urut', 'kategori_q', 'tanggal_service', 'no_wo', 'no_polisi',
+    'nama_customer', 'no_hp', 'model', 'service', 'sa', 'fo',
+    'teknisi', 'km_service', 'tanggal_rtj', 'batas_periode_rtj',
+    'status_rtj', 'detail_kendala', 'keterangan', 'created_at', 'updated_at',
+    'cabang', 'score', 'rekomendasi', 'tanggal_fu_1', 'jam_fu_1',
+    'tanggal_fu_2', 'jam_fu_2', 'hasil_idi', 'improvement', 'recovery_steps'
+  ];
+
+  const dateCols = ['tanggal_service', 'batas_periode_rtj', 'tanggal_fu_1', 'tanggal_fu_2'];
+  const intCols = ['km_service', 'score', 'no_urut'];
+
+  const clean = {};
+  for (const col of allowedCols) {
+    if (item[col] === undefined && fallbackRecord[col] === undefined) continue;
+    let val = item[col] !== undefined ? item[col] : fallbackRecord[col];
+
+    if (col === 'tanggal_rtj') {
+      if (!val || typeof val !== 'string' || val.trim() === '' || val === '-') {
+        val = item.tanggal_fu_1 || item.tanggal_service || fallbackRecord.tanggal_rtj || fallbackRecord.tanggal_service || new Date().toISOString().split('T')[0];
+      }
+      val = String(val).trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+        const d = new Date(val);
+        val = !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : (fallbackRecord.tanggal_service || new Date().toISOString().split('T')[0]);
+      }
+    } else if (dateCols.includes(col)) {
+      if (!val || typeof val !== 'string' || val.trim() === '' || val === '-') {
+        val = null;
+      } else {
+        val = val.trim();
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+          const d = new Date(val);
+          val = !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : null;
+        }
+      }
+    } else if (intCols.includes(col)) {
+      if (val === '' || val === null || val === undefined || val === '-') {
+        val = col === 'no_urut' ? (fallbackRecord.no_urut || 1) : null;
+      } else {
+        const num = parseInt(val, 10);
+        val = isNaN(num) ? null : num;
+      }
+    } else if (col === 'rekomendasi') {
+      if (val === 'Tidak') {
+        val = 'Tidak';
+      } else {
+        val = null;
+      }
+    } else if (col === 'recovery_steps') {
+      if (typeof val === 'string') {
+        try { val = JSON.parse(val); } catch (e) { val = {}; }
+      } else if (!val || typeof val !== 'object') {
+        val = {};
+      }
+    } else if (typeof val === 'string') {
+      val = val.trim();
+    }
+
+    clean[col] = val;
+  }
+  return clean;
+}
+
 export const db = {
   isSupabase: Boolean(supabase),
   supabaseClient: supabase,
@@ -1170,28 +1235,16 @@ export const db = {
 
     if (supabase) {
       try {
-        const payloadToInsert = { ...newRTJ };
+        const payloadToInsert = sanitizeRTJForSupabase(newRTJ);
         const { error: supaErr } = await supabase.from('rtj').insert([payloadToInsert]);
         if (supaErr) {
-          console.warn('Supabase sync insert failed, attempting safe fallback:', supaErr.message);
-          const baseCols = [
-            'id', 'no_urut', 'kategori_q', 'tanggal_service', 'no_wo', 'no_polisi',
-            'nama_customer', 'no_hp', 'model', 'service', 'sa', 'fo',
-            'teknisi', 'km_service', 'tanggal_rtj', 'batas_periode_rtj',
-            'status_rtj', 'detail_kendala', 'keterangan', 'created_at', 'updated_at',
-            'cabang', 'score', 'rekomendasi', 'tanggal_fu_1', 'jam_fu_1',
-            'tanggal_fu_2', 'jam_fu_2', 'hasil_idi', 'improvement', 'recovery_steps'
-          ];
-          const safePayload = {};
-          for (const col of baseCols) {
-            if (payloadToInsert[col] !== undefined) safePayload[col] = payloadToInsert[col];
+          console.warn('Supabase sync insert failed, retrying without optional nullable fields:', supaErr.message);
+          delete payloadToInsert.rekomendasi;
+          delete payloadToInsert.score;
+          const { error: retryErr } = await supabase.from('rtj').insert([payloadToInsert]);
+          if (retryErr) {
+            console.error('Supabase retry insert failed:', retryErr.message);
           }
-          if (safePayload.kategori_q && !['Q1', 'Q2', 'Q3', 'Q4', 'Q5'].includes(safePayload.kategori_q)) {
-            const cat = safePayload.kategori_q;
-            safePayload.keterangan = `[Kategori: ${cat}] ${safePayload.keterangan || ''}`.trim();
-            safePayload.kategori_q = 'Q1';
-          }
-          await supabase.from('rtj').insert([safePayload]);
         }
       } catch (err) {
         console.warn('Supabase sync insert failed:', err.message);
@@ -1228,15 +1281,32 @@ export const db = {
     const oldStatus = oldRecord.status_rtj;
     const newStatus = data.status_rtj || oldStatus;
 
+    // Consolidate recovery_steps cleanly
+    const recovery_steps = data.recovery_steps || {
+      recovery: data.recovery || oldRecord.recovery_steps?.recovery || '',
+      step_intern: data.step_intern || oldRecord.recovery_steps?.step_intern || '',
+      list_confirm: data.list_confirm || oldRecord.recovery_steps?.list_confirm || '',
+      recovery_action: data.recovery_action || oldRecord.recovery_steps?.recovery_action || '',
+      tindak_lanjut: data.tindak_lanjut || oldRecord.recovery_steps?.tindak_lanjut || '',
+    };
+
     const updatedRTJ = {
       ...oldRecord,
       ...data,
+      recovery_steps,
       id: oldRecord.id,
       no_urut: oldRecord.no_urut,
       no_polisi: data.no_polisi ? data.no_polisi.toUpperCase().trim() : oldRecord.no_polisi,
       model: data.model || data.unit || oldRecord.model,
       updated_at: new Date().toISOString()
     };
+
+    // Remove temporary modal spread properties
+    delete updatedRTJ.recovery;
+    delete updatedRTJ.step_intern;
+    delete updatedRTJ.list_confirm;
+    delete updatedRTJ.recovery_action;
+    delete updatedRTJ.tindak_lanjut;
 
     if (index !== -1) {
       store.rtj[index] = updatedRTJ;
@@ -1300,39 +1370,25 @@ export const db = {
 
     if (supabase) {
       try {
-        const payloadToSync = { ...updatedRTJ };
+        const payloadToSync = sanitizeRTJForSupabase(updatedRTJ, oldRecord);
         delete payloadToSync.id;
         delete payloadToSync.history;
         delete payloadToSync.created_at;
 
         const { error: supaErr } = await supabase.from('rtj').update(payloadToSync).eq('id', id);
         if (supaErr) {
-          console.warn('Supabase sync update with full payload failed, attempting safe fallback:', supaErr.message);
-          const baseCols = [
-            'kategori_q', 'tanggal_service', 'no_wo', 'no_polisi',
-            'nama_customer', 'no_hp', 'model', 'service', 'sa', 'fo',
-            'teknisi', 'km_service', 'tanggal_rtj', 'batas_periode_rtj',
-            'status_rtj', 'detail_kendala', 'keterangan', 'updated_at',
-            'cabang', 'score', 'rekomendasi', 'tanggal_fu_1', 'jam_fu_1',
-            'tanggal_fu_2', 'jam_fu_2', 'hasil_idi', 'improvement', 'recovery_steps'
-          ];
-          const safePayload = {};
-          for (const col of baseCols) {
-            if (payloadToSync[col] !== undefined) safePayload[col] = payloadToSync[col];
+          console.warn('[updateRTJ] Supabase update with full sanitized payload warning:', supaErr.message);
+          const fallback = { ...payloadToSync };
+          delete fallback.rekomendasi;
+          delete fallback.score;
+          const { error: retryErr } = await supabase.from('rtj').update(fallback).eq('id', id);
+          if (retryErr) {
+            console.error('[updateRTJ] Supabase fallback update error:', retryErr.message);
+          } else {
+            console.log('[updateRTJ] Supabase fallback update succeeded for id:', id);
           }
-
-          if (safePayload.kategori_q && !['Q1', 'Q2', 'Q3', 'Q4', 'Q5'].includes(safePayload.kategori_q)) {
-            const cat = safePayload.kategori_q;
-            if (!safePayload.keterangan?.includes(`[Kategori: ${cat}]`)) {
-              safePayload.keterangan = `[Kategori: ${cat}] ${safePayload.keterangan || ''}`.trim();
-            }
-            safePayload.kategori_q = 'Q1';
-          }
-
-          const { error: fallbackErr } = await supabase.from('rtj').update(safePayload).eq('id', id);
-          if (fallbackErr) {
-            console.warn('Supabase fallback update error:', fallbackErr.message);
-          }
+        } else {
+          console.log('[updateRTJ] Supabase update succeeded for id:', id);
         }
       } catch (err) {
         console.warn('Supabase sync update failed:', err.message);
@@ -1504,7 +1560,25 @@ export const db = {
 
     if (supabase) {
       try {
-        await supabase.from('rtj').insert(createdItems);
+        const sanitizedItems = createdItems.map(item => sanitizeRTJForSupabase(item));
+        const { error: supaErr } = await supabase.from('rtj').insert(sanitizedItems);
+        if (supaErr) {
+          console.warn('[bulkCreateRTJ] Supabase bulk insert warning:', supaErr.message, '- retrying without optional nullable fields');
+          const stripped = sanitizedItems.map(item => {
+            const copy = { ...item };
+            delete copy.rekomendasi;
+            delete copy.score;
+            return copy;
+          });
+          const { error: retryErr } = await supabase.from('rtj').insert(stripped);
+          if (retryErr) {
+            console.error('[bulkCreateRTJ] Supabase retry insert failed:', retryErr.message);
+          } else {
+            console.log(`[bulkCreateRTJ] Successfully inserted ${stripped.length} records into Supabase`);
+          }
+        } else {
+          console.log(`[bulkCreateRTJ] Successfully inserted ${sanitizedItems.length} records into Supabase`);
+        }
       } catch (err) {
         console.warn('Supabase bulk insert failed:', err.message);
       }

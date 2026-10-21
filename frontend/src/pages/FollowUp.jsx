@@ -87,8 +87,8 @@ function EditRowModal({ record, onClose, onSave }) {
           tindak_lanjut: form.tindak_lanjut,
         }
       };
-      await api.put(`/rtj/${record.id}`, payload);
-      if (onSave) onSave();
+      const res = await api.put(`/rtj/${record.id}`, payload);
+      if (onSave) onSave(res.data?.data);
       onClose();
     } catch (err) {
       alert(err.response?.data?.message || 'Gagal menyimpan perubahan.');
@@ -442,7 +442,16 @@ export default function FollowUp() {
     fetchNotifications(true);
   };
 
-  const handleEditSave = () => {
+  const handleEditSave = (updatedRecord) => {
+    if (updatedRecord && updatedRecord.id) {
+      queryClient.setQueriesData({ queryKey: ['dashboard-summary'] }, (old) => {
+        if (!old || !Array.isArray(old.records)) return old;
+        return {
+          ...old,
+          records: old.records.map(r => r.id === updatedRecord.id ? { ...r, ...updatedRecord } : r)
+        };
+      });
+    }
     queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
     queryClient.invalidateQueries({ queryKey: ['dashboard-chart-options'] });
     queryClient.invalidateQueries({ queryKey: ['dashboard-chart-analytics'] });
