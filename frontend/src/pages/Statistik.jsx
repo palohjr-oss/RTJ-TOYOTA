@@ -25,7 +25,6 @@ import api from '../api/client';
 
 // ─── Konstanta Kategori Q ─────────────────────────────────────────────────────
 const Q_CATEGORIES = [
-  { key: 'FIR', label: 'FIR', desc: 'Fix It Right (FIR)', color: 'from-emerald-600 to-emerald-700', bg: 'bg-emerald-600', light: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-700', badge: 'bg-emerald-600' },
   { key: 'Q1', label: 'Q1', desc: 'Kualitas Hasil Service', color: 'from-blue-600 to-blue-700', bg: 'bg-blue-600', light: 'bg-blue-50 border-blue-200', text: 'text-blue-700', badge: 'bg-blue-600' },
   { key: 'Q2', label: 'Q2', desc: 'Ketepatan Pengiriman Servis', color: 'from-violet-600 to-violet-700', bg: 'bg-violet-600', light: 'bg-violet-50 border-violet-200', text: 'text-violet-700', badge: 'bg-violet-600' },
   { key: 'Q3', label: 'Q3', desc: 'Lama Waktu Servis', color: 'from-teal-600 to-teal-700', bg: 'bg-teal-600', light: 'bg-teal-50 border-teal-200', text: 'text-teal-700', badge: 'bg-teal-600' },
@@ -437,15 +436,6 @@ export default function Statistik() {
   // Setiap kartu hanya menampilkan unit yang kategori_q-nya sesuai.
   // Tidak ada lagi "Total Unit Masuk" — angka mengikuti keluhan.
   const dealerCards = useMemo(() => [
-    {
-      key: 'FIR',
-      label: 'FIR',
-      title: 'Fix It Right',
-      desc: 'Fix It Right (FIR)',
-      bg: 'bg-emerald-700',
-      icon: CheckCircle2,
-      filterFn: (records) => records.filter(r => r.kategori_q === 'FIR'),
-    },
     {
       key: 'Q1',
       label: 'Q1',
@@ -862,10 +852,7 @@ export default function Statistik() {
                     <div className="text-4xl font-black text-white tracking-tight">
                       {isLoading ? '…' : card.count}
                     </div>
-                    <div className="text-xs sm:text-sm font-bold text-white/95 mt-1.5 tracking-wide">
-                      {card.title}
-                    </div>
-                    <div className="text-[10px] text-white/60 mt-0.5 font-medium">
+                    <div className="text-[10px] text-white/60 mt-1 font-medium">
                       Unit Follow-Up
                     </div>
                   </div>

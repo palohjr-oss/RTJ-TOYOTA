@@ -266,17 +266,43 @@ export default function ImportExcelModal({ isOpen, onClose, onSuccess }) {
                   </p>
                 </div>
               </div>
-              <div className="mt-3 grid grid-cols-2 gap-2 text-center text-xs">
+              <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
                 <div className="bg-white p-2 rounded-xl border border-emerald-100">
-                  <span className="text-slate-500">Baris Berhasil</span>
+                  <span className="text-slate-500">Data Baru</span>
                   <p className="text-lg font-bold text-emerald-600">{importResult.imported}</p>
                 </div>
-                <div className="bg-white p-2 rounded-xl border border-emerald-100">
+                <div className="bg-white p-2 rounded-xl border border-amber-100">
+                  <span className="text-slate-500">Duplikat (Dilewati)</span>
+                  <p className="text-lg font-bold text-amber-600">{importResult.duplicates || 0}</p>
+                </div>
+                <div className="bg-white p-2 rounded-xl border border-rose-100">
                   <span className="text-slate-500">Baris Gagal</span>
                   <p className="text-lg font-bold text-rose-600">{importResult.failed}</p>
                 </div>
               </div>
             </div>
+
+            {/* Duplicate details */}
+            {importResult.duplicate_list && importResult.duplicate_list.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-xs font-bold text-amber-700 flex items-center gap-1">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  Rincian Data Duplikat Dilewati ({importResult.duplicate_list.length} data):
+                </p>
+                <div className="max-h-36 overflow-y-auto border border-amber-200 rounded-xl p-2 bg-amber-50/50 text-xs space-y-1">
+                  {importResult.duplicate_list.map((dup, i) => (
+                    <div key={i} className="p-1.5 bg-white rounded border border-amber-100 text-slate-700 flex flex-wrap items-center justify-between gap-1">
+                      <div>
+                        <span className="font-bold text-slate-800">{dup.customer}</span> ({dup.nopol}) {dup.wo && dup.wo !== '-' ? `• ${dup.wo}` : ''}
+                      </div>
+                      <span className="text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full font-medium">
+                        {dup.reason}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Error details */}
             {importResult.errors && importResult.errors.length > 0 && (

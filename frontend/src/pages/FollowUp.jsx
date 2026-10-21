@@ -63,6 +63,8 @@ function EditRowModal({ record, onClose, onSave }) {
     jam_fu_1: record.jam_fu_1 || '',
     tanggal_fu_2: record.tanggal_fu_2 || '',
     jam_fu_2: record.jam_fu_2 || '',
+    score: record.score || '',
+    rekomendasi: record.rekomendasi || '',
     recovery: record.recovery_steps?.recovery || '',
     step_intern: record.recovery_steps?.step_intern || '',
     list_confirm: record.recovery_steps?.list_confirm || '',
@@ -220,6 +222,33 @@ function EditRowModal({ record, onClose, onSave }) {
               />
             </div>
 
+            {/* Score & Rekomendasi */}
+            <div>
+              <label className={labelClass}>Score (1–10)</label>
+              <select
+                className={fieldClass}
+                value={form.score}
+                onChange={e => setForm(f => ({...f, score: e.target.value}))}
+              >
+                <option value="">— Pilih Score —</option>
+                {[1,2,3,4,5,6,7,8,9,10].map(n => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>Rekomendasi</label>
+              <select
+                className={fieldClass}
+                value={form.rekomendasi}
+                onChange={e => setForm(f => ({...f, rekomendasi: e.target.value}))}
+              >
+                <option value="">— Pilih —</option>
+                <option value="Iya">Iya</option>
+                <option value="Tidak">Tidak</option>
+              </select>
+            </div>
+
             <div className="col-span-2">
               <label className={labelClass}>Detail Kendala / Keluhan</label>
               <textarea rows={2} className={fieldClass} value={form.detail_kendala} onChange={e => setForm(f => ({...f, detail_kendala: e.target.value}))} />
@@ -358,6 +387,8 @@ export default function FollowUp() {
       return res.data.data;
     },
     placeholderData: (prev) => prev,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   const allRecords = summaryData?.records || [];
@@ -407,11 +438,15 @@ export default function FollowUp() {
     queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
     queryClient.invalidateQueries({ queryKey: ['dashboard-chart-options'] });
     queryClient.invalidateQueries({ queryKey: ['dashboard-chart-analytics'] });
+    refetch();
     fetchNotifications(true);
   };
 
   const handleEditSave = () => {
     queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
+    queryClient.invalidateQueries({ queryKey: ['dashboard-chart-options'] });
+    queryClient.invalidateQueries({ queryKey: ['dashboard-chart-analytics'] });
+    refetch();
     fetchNotifications(true);
   };
 
@@ -420,6 +455,9 @@ export default function FollowUp() {
     try {
       await api.delete(`/rtj/${id}`);
       queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-chart-options'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-chart-analytics'] });
+      refetch();
       fetchNotifications(true);
     } catch (err) {
       alert(err.response?.data?.message || 'Gagal menghapus data.');

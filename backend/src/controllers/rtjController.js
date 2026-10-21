@@ -473,15 +473,104 @@ export const importExcel = async (req, res) => {
       return res.status(400).json({ success: false, message: 'File Excel tidak memiliki baris data yang bisa diproses.' });
     }
 
+    // ── Cegah Duplikasi Data (Deduplication) ──
+    // Ambil data existing dari database untuk pengecekan
+    let existingList = [];
+    if (db.isSupabase && db.supabaseClient) {
+      try {
+        const { data: supaRows } = await db.supabaseClient.from('rtj').select('no_wo, no_polisi, tanggal_service');
+        if (supaRows) existingList = supaRows;
+      } catch (e) {
+        console.warn('Gagal mengambil data existing dari Supabase untuk dedup:', e.message);
+      }
+    }
+    if (existingList.length === 0) {
+      const summary = await db.getDashboardSummary({});
+      existingList = summary.records || [];
+    }
+
+    const existingWOSet = new Set();
+    const existingNopolDateSet = new Set();
+
+    existingList.forEach(r => {
+      if (r.no_wo) {
+        existingWOSet.add(String(r.no_wo).trim().toUpperCase());
+      }
+      if (r.no_polisi && r.tanggal_service) {
+        const key = `${String(r.no_polisi).trim().toUpperCase().replace(/\s+/g, '')}_${String(r.tanggal_service).trim()}`;
+        existingNopolDateSet.add(key);
+      }
+    });
+
+    const rowsToImport = [];
+    const duplicates = [];
+    const seenBatchKeys = new Set();
+
+    for (const row of validRows) {
+      const woKey = row.no_wo ? String(row.no_wo).trim().toUpperCase() : null;
+      const nopolClean = String(row.no_polisi || '').trim().toUpperCase().replace(/\s+/g, '');
+      const tglClean = String(row.tanggal_service || '').trim();
+      const nopolDateKey = `${nopolClean}_${tglClean}`;
+
+      let isDuplicate = false;
+      let dupReason = '';
+
+      if (woKey && existingWOSet.has(woKey)) {
+        isDuplicate = true;
+        dupReason = `No. WO "${woKey}" sudah terdaftar di sistem`;
+      } else if (nopolClean && tglClean && existingNopolDateSet.has(nopolDateKey)) {
+        isDuplicate = true;
+        dupReason = `Kendaraan "${nopolClean}" tgl service "${tglClean}" sudah ada`;
+      } else if (woKey && seenBatchKeys.has(`WO_${woKey}`)) {
+        isDuplicate = true;
+        dupReason = `No. WO "${woKey}" ganda dalam file Excel ini`;
+      } else if (nopolClean && tglClean && seenBatchKeys.has(`NP_${nopolDateKey}`)) {
+        isDuplicate = true;
+        dupReason = `Kendaraan "${nopolClean}" tgl "${tglClean}" ganda dalam file Excel ini`;
+      }
+
+      if (isDuplicate) {
+        duplicates.push({
+          customer: row.nama_customer || '-',
+          nopol: row.no_polisi || '-',
+          wo: row.no_wo || '-',
+          reason: dupReason
+        });
+      } else {
+        rowsToImport.push(row);
+        if (woKey) {
+          seenBatchKeys.add(`WO_${woKey}`);
+          existingWOSet.add(woKey);
+        }
+        if (nopolClean && tglClean) {
+          seenBatchKeys.add(`NP_${nopolDateKey}`);
+          existingNopolDateSet.add(nopolDateKey);
+        }
+      }
+    }
+
     let importedItems = [];
-    if (validRows.length > 0) {
-      importedItems = await db.bulkCreateRTJ(validRows, req.user);
+    if (rowsToImport.length > 0) {
+      importedItems = await db.bulkCreateRTJ(rowsToImport, req.user);
+    }
+
+    let statusMsg = '';
+    if (rowsToImport.length > 0) {
+      statusMsg = `Proses impor selesai. Berhasil menambahkan ${rowsToImport.length} data baru.`;
+      if (duplicates.length > 0) statusMsg += ` (${duplicates.length} data duplikat dilewati).`;
+      if (errors.length > 0) statusMsg += ` (${errors.length} baris gagal).`;
+    } else if (duplicates.length > 0) {
+      statusMsg = `Semua data (${duplicates.length} baris) sudah ada di database. Tidak ada data duplikat yang dimasukkan.`;
+    } else {
+      statusMsg = 'Tidak ada baris data yang berhasil diproses.';
     }
 
     return res.json({
-      success: true,
-      message: `Proses impor selesai. Berhasil mengimpor ${validRows.length} baris.${errors.length > 0 ? ` (${errors.length} baris gagal).` : ''}`,
-      imported: validRows.length,
+      success: rowsToImport.length > 0 || duplicates.length > 0,
+      message: statusMsg,
+      imported: rowsToImport.length,
+      duplicates: duplicates.length,
+      duplicate_list: duplicates.slice(0, 50),
       failed: errors.length,
       errors: errors,
       data: importedItems,

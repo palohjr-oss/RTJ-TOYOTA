@@ -28,3 +28,7 @@ ALTER TABLE rtj ADD COLUMN IF NOT EXISTS recovery_steps JSONB DEFAULT '{}'::json
 -- 4. Buat index baru untuk performa query pencarian Follow-Up
 CREATE INDEX IF NOT EXISTS idx_rtj_tanggal_fu_1 ON rtj(tanggal_fu_1);
 CREATE INDEX IF NOT EXISTS idx_rtj_tanggal_fu_2 ON rtj(tanggal_fu_2);
+
+-- 5. Tambahkan kolom Score dan Rekomendasi
+ALTER TABLE rtj ADD COLUMN IF NOT EXISTS score INTEGER CHECK (score >= 1 AND score <= 10);
+ALTER TABLE rtj ADD COLUMN IF NOT EXISTS rekomendasi VARCHAR(10) CHECK (rekomendasi IN ('Iya', 'Tidak'));

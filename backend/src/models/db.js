@@ -40,6 +40,20 @@ if (isSupabaseEnabled) {
   try {
     supabase = createClient(supabaseUrl, supabaseKey);
     console.log('[Database] Supabase client initialized:', supabaseUrl);
+
+    // Initial background sync from Supabase to local store
+    supabase.from('rtj').select('*').order('tanggal_service', { ascending: false })
+      .then(({ data, error }) => {
+        if (!error && Array.isArray(data) && data.length > 0) {
+          const store = loadStore();
+          store.rtj = data;
+          saveStore(store);
+          console.log(`[Database] Initial sync: loaded ${data.length} records from Supabase into local cache.`);
+        }
+      })
+      .catch(err => {
+        console.warn('[Database] Initial Supabase sync skipped:', err.message);
+      });
   } catch (err) {
     console.warn('[Database] Failed to init Supabase client, falling back to local persistent store.', err.message);
   }
@@ -932,7 +946,7 @@ export const db = {
   },
 
   // RTJ methods
-  async getRTJList({ sa, fo, status, kategori_q, search, periode_mulai, periode_selesai, page = 1, limit = 10, sort_by = 'tanggal_service', sort_order = 'desc' }) {
+  async getRTJList({ sa, fo, status, kategori_q, search, periode_mulai, periode_selesai, cabang, page = 1, limit = 10, sort_by = 'tanggal_service', sort_order = 'desc' }) {
     if (supabase) {
       try {
         let query = supabase.from('rtj').select('*', { count: 'exact' });
@@ -941,6 +955,7 @@ export const db = {
         if (fo && fo !== 'ALL') query = query.ilike('fo', fo);
         if (status && status !== 'ALL') query = query.eq('status_rtj', status);
         if (kategori_q && kategori_q !== 'ALL') query = query.eq('kategori_q', kategori_q.toUpperCase());
+        if (cabang && cabang !== 'ALL') query = query.eq('cabang', cabang);
         if (periode_mulai) query = query.gte('tanggal_service', periode_mulai);
         if (periode_selesai) query = query.lte('tanggal_service', periode_selesai);
 
@@ -1071,9 +1086,19 @@ export const db = {
   },
 
   async createRTJ(data, user) {
+    let highestNo = 0;
+    if (supabase) {
+      try {
+        const { data: maxRow } = await supabase.from('rtj').select('no_urut').order('no_urut', { ascending: false }).limit(1).maybeSingle();
+        if (maxRow?.no_urut) highestNo = Number(maxRow.no_urut) || 0;
+      } catch (e) {}
+    }
     const store = loadStore();
+    if (store.rtj?.length > 0) {
+      highestNo = Math.max(highestNo, ...store.rtj.map(r => r.no_urut || 0));
+    }
+    const newNo = highestNo + 1;
     const newId = uuidv4();
-    const newNo = (store.rtj.length > 0 ? Math.max(...store.rtj.map(r => r.no_urut || 0)) : 0) + 1;
 
     const newRTJ = {
       id: newId,
@@ -1153,7 +1178,9 @@ export const db = {
             'id', 'no_urut', 'kategori_q', 'tanggal_service', 'no_wo', 'no_polisi',
             'nama_customer', 'no_hp', 'model', 'service', 'sa', 'fo',
             'teknisi', 'km_service', 'tanggal_rtj', 'batas_periode_rtj',
-            'status_rtj', 'detail_kendala', 'keterangan', 'created_at', 'updated_at'
+            'status_rtj', 'detail_kendala', 'keterangan', 'created_at', 'updated_at',
+            'cabang', 'score', 'rekomendasi', 'tanggal_fu_1', 'jam_fu_1',
+            'tanggal_fu_2', 'jam_fu_2', 'hasil_idi', 'improvement', 'recovery_steps'
           ];
           const safePayload = {};
           for (const col of baseCols) {
@@ -1175,28 +1202,29 @@ export const db = {
   },
 
   async updateRTJ(id, data, user) {
-    const store = loadStore();
-    let index = store.rtj.findIndex(r => r.id === id);
-
-    // If not in local cache, try fetching from Supabase
-    if (index === -1 && supabase) {
+    let oldRecord = null;
+    if (supabase) {
       try {
         const { data: supaRow } = await supabase.from('rtj').select('*').eq('id', id).maybeSingle();
         if (supaRow) {
-          store.rtj.push(supaRow);
-          index = store.rtj.length - 1;
+          oldRecord = supaRow;
         }
       } catch (err) {
         console.warn('Supabase fetch in updateRTJ failed:', err.message);
       }
     }
 
-    if (index === -1) {
+    const store = loadStore();
+    let index = store.rtj.findIndex(r => r.id === id);
+    if (!oldRecord && index !== -1) {
+      oldRecord = { ...store.rtj[index] };
+    }
+
+    if (!oldRecord) {
       console.warn(`[updateRTJ] Record id ${id} not found.`);
       return null;
     }
 
-    const oldRecord = { ...store.rtj[index] };
     const oldStatus = oldRecord.status_rtj;
     const newStatus = data.status_rtj || oldStatus;
 
@@ -1210,7 +1238,11 @@ export const db = {
       updated_at: new Date().toISOString()
     };
 
-    store.rtj[index] = updatedRTJ;
+    if (index !== -1) {
+      store.rtj[index] = updatedRTJ;
+    } else {
+      store.rtj.unshift(updatedRTJ);
+    }
 
     if (oldStatus !== newStatus || data.catatan_perubahan) {
       store.history.push({
@@ -1280,7 +1312,9 @@ export const db = {
             'kategori_q', 'tanggal_service', 'no_wo', 'no_polisi',
             'nama_customer', 'no_hp', 'model', 'service', 'sa', 'fo',
             'teknisi', 'km_service', 'tanggal_rtj', 'batas_periode_rtj',
-            'status_rtj', 'detail_kendala', 'keterangan', 'updated_at'
+            'status_rtj', 'detail_kendala', 'keterangan', 'updated_at',
+            'cabang', 'score', 'rekomendasi', 'tanggal_fu_1', 'jam_fu_1',
+            'tanggal_fu_2', 'jam_fu_2', 'hasil_idi', 'improvement', 'recovery_steps'
           ];
           const safePayload = {};
           for (const col of baseCols) {
@@ -1309,9 +1343,34 @@ export const db = {
   },
 
   async deleteRTJ(id) {
+    let target = null;
+    let supaDeleted = false;
+
+    if (supabase) {
+      try {
+        const { data: supaRow } = await supabase.from('rtj').select('*').eq('id', id).maybeSingle();
+        if (supaRow) target = supaRow;
+
+        try {
+          await supabase.from('rtj_status_history').delete().eq('rtj_id', id);
+        } catch (e) {}
+
+        const { error: delErr } = await supabase.from('rtj').delete().eq('id', id);
+        if (!delErr) {
+          supaDeleted = true;
+        } else {
+          console.warn('[deleteRTJ] Supabase delete error:', delErr.message);
+        }
+      } catch (err) {
+        console.warn('Supabase sync delete failed:', err.message);
+      }
+    }
+
     const store = loadStore();
     const beforeCount = store.rtj.length;
-    const target = store.rtj.find(r => r.id === id);
+    if (!target) {
+      target = store.rtj.find(r => r.id === id);
+    }
     store.rtj = store.rtj.filter(r => r.id !== id);
     store.history = store.history.filter(h => h.rtj_id !== id);
 
@@ -1331,15 +1390,8 @@ export const db = {
     }
     saveStore(store);
 
-    if (supabase) {
-      try {
-        await supabase.from('rtj').delete().eq('id', id);
-      } catch (err) {
-        console.warn('Supabase sync delete failed:', err.message);
-      }
-    }
-
-    return store.rtj.length < beforeCount;
+    const wasDeleted = supaDeleted || (store.rtj.length < beforeCount) || Boolean(target);
+    return wasDeleted;
   },
 
   async deleteAllRTJ() {
@@ -1351,7 +1403,9 @@ export const db = {
 
     if (supabase) {
       try {
-        await supabase.from('history').delete().neq('id', '');
+        try {
+          await supabase.from('rtj_status_history').delete().neq('id', '');
+        } catch (e) {}
         await supabase.from('rtj').delete().neq('id', '');
       } catch (err) {
         console.warn('Supabase sync deleteAll failed:', err.message);
@@ -1362,8 +1416,17 @@ export const db = {
   },
 
   async bulkCreateRTJ(recordsList, user) {
+    let highestNo = 0;
+    if (supabase) {
+      try {
+        const { data: maxRow } = await supabase.from('rtj').select('no_urut').order('no_urut', { ascending: false }).limit(1).maybeSingle();
+        if (maxRow?.no_urut) highestNo = Number(maxRow.no_urut) || 0;
+      } catch (e) {}
+    }
     const store = loadStore();
-    let highestNo = store.rtj.length > 0 ? Math.max(...store.rtj.map(r => r.no_urut || 0)) : 0;
+    if (store.rtj?.length > 0) {
+      highestNo = Math.max(highestNo, ...store.rtj.map(r => r.no_urut || 0));
+    }
     const createdItems = [];
 
     for (const item of recordsList) {
@@ -1383,12 +1446,22 @@ export const db = {
         sa: item.sa || 'Service Advisor',
         fo: item.fo || 'Front Officer',
         teknisi: item.teknisi || '-',
+        cabang: item.cabang || 'BJM',
         km_service: Number(item.km_service) || 0,
         tanggal_rtj: item.tanggal_rtj || item.tanggal_service,
         batas_periode_rtj: item.batas_periode_rtj || null,
+        tanggal_fu_1: item.tanggal_fu_1 || null,
+        jam_fu_1: item.jam_fu_1 || null,
+        tanggal_fu_2: item.tanggal_fu_2 || null,
+        jam_fu_2: item.jam_fu_2 || null,
         status_rtj: item.status_rtj || 'Scheduled',
         detail_kendala: item.detail_kendala || '',
         keterangan: item.keterangan || '',
+        score: item.score || null,
+        rekomendasi: item.rekomendasi || null,
+        hasil_idi: item.hasil_idi || '',
+        improvement: item.improvement || '',
+        recovery_steps: item.recovery_steps || null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
@@ -1441,11 +1514,42 @@ export const db = {
   },
 
   async getDashboardSummary({ sa, fo, status, periode_mulai, periode_selesai, cabang }) {
-    const store = loadStore();
-    let records = [...store.rtj];
+    let records = [];
+
+    // Prioritaskan Supabase jika aktif
+    if (supabase) {
+      try {
+        let query = supabase.from('rtj').select('*');
+        if (sa && sa !== 'ALL') query = query.ilike('sa', sa);
+        if (fo && fo !== 'ALL') query = query.ilike('fo', fo);
+        if (status && status !== 'ALL') query = query.eq('status_rtj', status);
+        if (periode_mulai) query = query.gte('tanggal_service', periode_mulai);
+        if (periode_selesai) query = query.lte('tanggal_service', periode_selesai);
+        query = query.order('tanggal_service', { ascending: false });
+        const { data, error } = await query;
+        if (!error && data) {
+          records = data;
+          console.log('[getDashboardSummary] Loaded', records.length, 'records from Supabase');
+        } else {
+          console.warn('[getDashboardSummary] Supabase error, fallback to local:', error?.message);
+          const store = loadStore();
+          records = [...store.rtj];
+        }
+      } catch (err) {
+        console.warn('[getDashboardSummary] Supabase exception, fallback to local:', err.message);
+        const store = loadStore();
+        records = [...store.rtj];
+      }
+    } else {
+      const store = loadStore();
+      records = [...store.rtj];
+    }
 
     // Helper to identify branch
     const getBranch = (r) => {
+      if (r.cabang && ['BJM', 'SP', 'BKT'].includes(String(r.cabang).toUpperCase().trim())) {
+        return String(r.cabang).toUpperCase().trim();
+      }
       const saUpper = String(r.sa || '').toUpperCase();
       const srvUpper = String(r.service || '').toUpperCase();
       const ketUpper = String(r.keterangan || '').toUpperCase();
@@ -1639,13 +1743,59 @@ export const db = {
   },
 
   async getDashboardCharts({ sa, fo, periode_mulai, periode_selesai }) {
-    const store = loadStore();
-    let records = [...store.rtj];
+    let records = [];
+    let allRtjForOptions = [];
 
-    if (sa && sa !== 'ALL') records = records.filter(r => r.sa && r.sa.toLowerCase() === sa.toLowerCase());
-    if (fo && fo !== 'ALL') records = records.filter(r => r.fo && r.fo.toLowerCase() === fo.toLowerCase());
-    if (periode_mulai) records = records.filter(r => r.tanggal_service >= periode_mulai);
-    if (periode_selesai) records = records.filter(r => r.tanggal_service <= periode_selesai);
+    // Prioritaskan Supabase jika aktif
+    if (supabase) {
+      try {
+        const { data: allData, error: allErr } = await supabase.from('rtj').select('*').order('tanggal_service', { ascending: false });
+        if (!allErr && allData) {
+          allRtjForOptions = allData;
+          // Filter sesuai params
+          records = allData.filter(r => {
+            if (sa && sa !== 'ALL' && !(r.sa || '').toLowerCase().includes(sa.toLowerCase())) return false;
+            if (fo && fo !== 'ALL' && !(r.fo || '').toLowerCase().includes(fo.toLowerCase())) return false;
+            if (periode_mulai && r.tanggal_service < periode_mulai) return false;
+            if (periode_selesai && r.tanggal_service > periode_selesai) return false;
+            return true;
+          });
+          console.log('[getDashboardCharts] Loaded', allData.length, 'records from Supabase');
+        } else {
+          console.warn('[getDashboardCharts] Supabase error, fallback to local:', allErr?.message);
+          const store = loadStore();
+          allRtjForOptions = [...store.rtj];
+          records = allRtjForOptions.filter(r => {
+            if (sa && sa !== 'ALL' && r.sa?.toLowerCase() !== sa.toLowerCase()) return false;
+            if (fo && fo !== 'ALL' && r.fo?.toLowerCase() !== fo.toLowerCase()) return false;
+            if (periode_mulai && r.tanggal_service < periode_mulai) return false;
+            if (periode_selesai && r.tanggal_service > periode_selesai) return false;
+            return true;
+          });
+        }
+      } catch (err) {
+        console.warn('[getDashboardCharts] Supabase exception, fallback to local:', err.message);
+        const store = loadStore();
+        allRtjForOptions = [...store.rtj];
+        records = allRtjForOptions.filter(r => {
+          if (sa && sa !== 'ALL' && r.sa?.toLowerCase() !== sa.toLowerCase()) return false;
+          if (fo && fo !== 'ALL' && r.fo?.toLowerCase() !== fo.toLowerCase()) return false;
+          if (periode_mulai && r.tanggal_service < periode_mulai) return false;
+          if (periode_selesai && r.tanggal_service > periode_selesai) return false;
+          return true;
+        });
+      }
+    } else {
+      const store = loadStore();
+      allRtjForOptions = [...store.rtj];
+      records = allRtjForOptions.filter(r => {
+        if (sa && sa !== 'ALL' && r.sa?.toLowerCase() !== sa.toLowerCase()) return false;
+        if (fo && fo !== 'ALL' && r.fo?.toLowerCase() !== fo.toLowerCase()) return false;
+        if (periode_mulai && r.tanggal_service < periode_mulai) return false;
+        if (periode_selesai && r.tanggal_service > periode_selesai) return false;
+        return true;
+      });
+    }
 
     const statusCounts = {
       Completed: records.filter(r => r.status_rtj === 'Completed').length,
@@ -1675,8 +1825,8 @@ export const db = {
 
     const saData = Object.values(saMap).sort((a, b) => b.total - a.total);
 
-    const allSAs = [...new Set(store.rtj.map(r => r.sa).filter(Boolean))].sort();
-    const allFOs = [...new Set(store.rtj.map(r => r.fo).filter(Boolean))].sort();
+    const allSAs = [...new Set(allRtjForOptions.map(r => r.sa).filter(Boolean))].sort();
+    const allFOs = [...new Set(allRtjForOptions.map(r => r.fo).filter(Boolean))].sort();
 
     // Helper to identify specific branch key
     const getBranchKey = (r) => {
@@ -1839,7 +1989,7 @@ export const db = {
 
     // Extract dynamic distinct months from actual database records
     const monthSet = new Set();
-    store.rtj.forEach(r => {
+    allRtjForOptions.forEach(r => {
       if (r.tanggal_service && typeof r.tanggal_service === 'string') {
         const parts = r.tanggal_service.split('-');
         if (parts.length >= 2) {

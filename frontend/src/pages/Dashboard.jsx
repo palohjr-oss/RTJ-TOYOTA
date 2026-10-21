@@ -149,6 +149,8 @@ export default function Dashboard() {
     },
     // Keep previous data visible while fetching new data (no blinking/skeleton)
     placeholderData: (previousData) => previousData,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   const activeRecords = summaryData?.records || [];
