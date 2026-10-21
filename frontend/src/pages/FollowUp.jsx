@@ -21,6 +21,23 @@ import ImportExcelModal from '../components/common/ImportExcelModal';
 import CategoryBadge from '../components/common/CategoryBadge';
 import { useNotifications } from '../context/NotificationContext';
 
+// ─── Kategori Options ────────────────────────────────────────────────────────
+const CATEGORY_OPTIONS = [
+  'FIR',
+  'Q1',
+  'Q2',
+  'Q3',
+  'Q4',
+  'Q5',
+  'Q6',
+  'Tidak Diangkat',
+  'Tidak Aktif',
+  'Tidak ada Nada',
+  'Tidak Terhubung',
+  'Tidak Valid',
+  'Salah Sambung'
+];
+
 // ─── Edit Row Modal ────────────────────────────────────────────────────────────
 function EditRowModal({ record, onClose, onSave }) {
   const [form, setForm] = useState({
@@ -42,6 +59,10 @@ function EditRowModal({ record, onClose, onSave }) {
     hasil_idi: record.hasil_idi || '',
     improvement: record.improvement || '',
     tanggal_rtj: record.tanggal_rtj || '',
+    tanggal_fu_1: record.tanggal_fu_1 || '',
+    jam_fu_1: record.jam_fu_1 || '',
+    tanggal_fu_2: record.tanggal_fu_2 || '',
+    jam_fu_2: record.jam_fu_2 || '',
     recovery: record.recovery_steps?.recovery || '',
     step_intern: record.recovery_steps?.step_intern || '',
     list_confirm: record.recovery_steps?.list_confirm || '',
@@ -141,9 +162,9 @@ function EditRowModal({ record, onClose, onSave }) {
               </select>
             </div>
             <div>
-              <label className={labelClass}>Kategori Q</label>
+              <label className={labelClass}>Kategori</label>
               <select className={fieldClass} value={form.kategori_q} onChange={e => setForm(f => ({...f, kategori_q: e.target.value}))}>
-                {['FIR','Q1','Q2','Q3','Q4','Q5','Q6'].map(q => <option key={q}>{q}</option>)}
+                {CATEGORY_OPTIONS.map(q => <option key={q} value={q}>{q}</option>)}
               </select>
             </div>
             <div>
@@ -159,6 +180,46 @@ function EditRowModal({ record, onClose, onSave }) {
               <label className={labelClass}>Tanggal RTJ</label>
               <input type="date" className={fieldClass} value={form.tanggal_rtj} onChange={e => setForm(f => ({...f, tanggal_rtj: e.target.value}))} />
             </div>
+            <div></div>
+
+            {/* 4 Field Baru: Tanggal Follow-Up 1, Jam Follow-Up 1, Tanggal Follow-Up 2, Jam Follow-Up 2 */}
+            <div>
+              <label className={labelClass}>Tanggal Follow-Up 1</label>
+              <input
+                type="date"
+                className={fieldClass}
+                value={form.tanggal_fu_1}
+                onChange={e => setForm(f => ({...f, tanggal_fu_1: e.target.value}))}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Jam Follow-Up 1</label>
+              <input
+                type="time"
+                className={fieldClass}
+                value={form.jam_fu_1}
+                onChange={e => setForm(f => ({...f, jam_fu_1: e.target.value}))}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Tanggal Follow-Up 2</label>
+              <input
+                type="date"
+                className={fieldClass}
+                value={form.tanggal_fu_2}
+                onChange={e => setForm(f => ({...f, tanggal_fu_2: e.target.value}))}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Jam Follow-Up 2</label>
+              <input
+                type="time"
+                className={fieldClass}
+                value={form.jam_fu_2}
+                onChange={e => setForm(f => ({...f, jam_fu_2: e.target.value}))}
+              />
+            </div>
+
             <div className="col-span-2">
               <label className={labelClass}>Detail Kendala / Keluhan</label>
               <textarea rows={2} className={fieldClass} value={form.detail_kendala} onChange={e => setForm(f => ({...f, detail_kendala: e.target.value}))} />
@@ -386,6 +447,10 @@ export default function FollowUp() {
       'SPESIFIK PUAS': 'QUALITY',
       'TELPON': r.no_hp || '-',
       'TANGGAL FU': r.tanggal_rtj || '-',
+      'TGL FOLLOW-UP 1': r.tanggal_fu_1 || '-',
+      'JAM FOLLOW-UP 1': r.jam_fu_1 || '-',
+      'TGL FOLLOW-UP 2': r.tanggal_fu_2 || '-',
+      'JAM FOLLOW-UP 2': r.jam_fu_2 || '-',
       'WAKTU': 'PAGI',
       'JAM': '-',
       'SCORE': '-',
@@ -400,7 +465,7 @@ export default function FollowUp() {
       'Tgl Next Service': '-',
       'Tgl Booking': '-',
       'Permintaan': '-',
-      'Kategori Q': r.kategori_q || 'Q1',
+      'Kategori': r.kategori_q || 'Q1',
       'Cabang': r.cabang || 'BJM',
       'SA': r.sa || '-',
     }));
@@ -530,16 +595,16 @@ export default function FollowUp() {
               </select>
             </div>
 
-            {/* Kategori Q */}
+            {/* Kategori */}
             <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Kategori Q</label>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Kategori</label>
               <select
                 value={kategoriQ}
                 onChange={(e) => { setKategoriQ(e.target.value); setPage(1); }}
                 className="w-full text-xs rounded-xl border-slate-200 bg-slate-50 p-2 border font-bold text-slate-800"
               >
                 <option value="ALL">Semua Kategori</option>
-                {['FIR','Q1','Q2','Q3','Q4','Q5','Q6'].map(q => <option key={q}>{q}</option>)}
+                {CATEGORY_OPTIONS.map(q => <option key={q} value={q}>{q}</option>)}
               </select>
             </div>
 

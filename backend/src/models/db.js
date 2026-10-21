@@ -1,4 +1,5 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
@@ -20,9 +21,13 @@ if (!process.env.SUPABASE_URL) {
 const DATA_DIR = path.join(__dirname, '../../data');
 const STORE_PATH = path.join(DATA_DIR, 'store.json');
 
-// Ensure data dir exists
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+// Ensure data dir exists safely (avoid crash on read-only environments like Vercel)
+try {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+} catch (e) {
+  // Read-only filesystem fallback
 }
 
 // Check Supabase config
@@ -711,19 +716,53 @@ const initialHistory = [
   }
 ];
 
+// In-memory cache for serverless environments with read-only file systems
+let inMemoryStore = null;
+
 // Helper to load store
 function loadStore() {
-  if (!fs.existsSync(STORE_PATH)) {
-    const defaultData = {
-      users: initialUsers,
-      rtj: initialRTJ,
-      history: initialHistory,
-    };
-    fs.writeFileSync(STORE_PATH, JSON.stringify(defaultData, null, 2), 'utf-8');
+  if (inMemoryStore) {
+    return inMemoryStore;
+  }
+
+  const defaultData = {
+    users: initialUsers,
+    rtj: initialRTJ,
+    history: initialHistory,
+    notifications: [],
+    rtj_initialized: true
+  };
+
+  let raw = null;
+  if (fs.existsSync(STORE_PATH)) {
+    try {
+      raw = fs.readFileSync(STORE_PATH, 'utf-8');
+    } catch (e) {}
+  }
+
+  if (!raw) {
+    const tmpPath = path.join(os.tmpdir(), 'rtj_store.json');
+    if (fs.existsSync(tmpPath)) {
+      try {
+        raw = fs.readFileSync(tmpPath, 'utf-8');
+      } catch (e) {}
+    }
+  }
+
+  if (!raw) {
+    try {
+      fs.writeFileSync(STORE_PATH, JSON.stringify(defaultData, null, 2), 'utf-8');
+    } catch (e) {
+      try {
+        const tmpPath = path.join(os.tmpdir(), 'rtj_store.json');
+        fs.writeFileSync(tmpPath, JSON.stringify(defaultData, null, 2), 'utf-8');
+      } catch (err) {}
+    }
+    inMemoryStore = defaultData;
     return defaultData;
   }
+
   try {
-    const raw = fs.readFileSync(STORE_PATH, 'utf-8');
     const parsed = JSON.parse(raw);
 
     let updated = false;
@@ -748,7 +787,6 @@ function loadStore() {
     }
 
     // Seed initial RTJ data hanya jika store belum pernah diinisialisasi
-    // Flag 'rtj_initialized' mencegah data dimuat ulang setelah user menghapus semua
     if (!parsed.rtj_initialized) {
       parsed.rtj = parsed.rtj || initialRTJ;
       parsed.history = parsed.history || initialHistory;
@@ -762,25 +800,32 @@ function loadStore() {
     }
 
     if (updated) {
-      fs.writeFileSync(STORE_PATH, JSON.stringify(parsed, null, 2), 'utf-8');
+      saveStore(parsed);
     }
 
+    inMemoryStore = parsed;
     return parsed;
   } catch (err) {
     console.error('[Store] Corrupt store file, re-initializing...', err);
-    const defaultData = {
-      users: initialUsers,
-      rtj: initialRTJ,
-      history: initialHistory,
-    };
-    fs.writeFileSync(STORE_PATH, JSON.stringify(defaultData, null, 2), 'utf-8');
+    inMemoryStore = defaultData;
+    saveStore(defaultData);
     return defaultData;
   }
 }
 
-// Helper to save store
+// Helper to save store safely (never crash on read-only environments like Vercel)
 function saveStore(data) {
-  fs.writeFileSync(STORE_PATH, JSON.stringify(data, null, 2), 'utf-8');
+  inMemoryStore = data;
+  try {
+    fs.writeFileSync(STORE_PATH, JSON.stringify(data, null, 2), 'utf-8');
+  } catch (err) {
+    try {
+      const tmpPath = path.join(os.tmpdir(), 'rtj_store.json');
+      fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2), 'utf-8');
+    } catch (e) {
+      // In-memory fallback is active
+    }
+  }
 }
 
 export const db = {
@@ -1044,12 +1089,20 @@ export const db = {
       sa: data.sa || 'Service Advisor',
       fo: data.fo || 'Front Officer',
       teknisi: data.teknisi || '-',
+      cabang: data.cabang || 'BJM',
       km_service: Number(data.km_service) || 0,
       tanggal_rtj: data.tanggal_rtj || data.tanggal_service,
       batas_periode_rtj: data.batas_periode_rtj || null,
+      tanggal_fu_1: data.tanggal_fu_1 || null,
+      jam_fu_1: data.jam_fu_1 || null,
+      tanggal_fu_2: data.tanggal_fu_2 || null,
+      jam_fu_2: data.jam_fu_2 || null,
       status_rtj: data.status_rtj || 'Scheduled',
       detail_kendala: data.detail_kendala || '',
       keterangan: data.keterangan || '',
+      hasil_idi: data.hasil_idi || '',
+      improvement: data.improvement || '',
+      recovery_steps: data.recovery_steps || null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
@@ -1092,7 +1145,27 @@ export const db = {
 
     if (supabase) {
       try {
-        await supabase.from('rtj').insert([newRTJ]);
+        const payloadToInsert = { ...newRTJ };
+        const { error: supaErr } = await supabase.from('rtj').insert([payloadToInsert]);
+        if (supaErr) {
+          console.warn('Supabase sync insert failed, attempting safe fallback:', supaErr.message);
+          const baseCols = [
+            'id', 'no_urut', 'kategori_q', 'tanggal_service', 'no_wo', 'no_polisi',
+            'nama_customer', 'no_hp', 'model', 'service', 'sa', 'fo',
+            'teknisi', 'km_service', 'tanggal_rtj', 'batas_periode_rtj',
+            'status_rtj', 'detail_kendala', 'keterangan', 'created_at', 'updated_at'
+          ];
+          const safePayload = {};
+          for (const col of baseCols) {
+            if (payloadToInsert[col] !== undefined) safePayload[col] = payloadToInsert[col];
+          }
+          if (safePayload.kategori_q && !['Q1', 'Q2', 'Q3', 'Q4', 'Q5'].includes(safePayload.kategori_q)) {
+            const cat = safePayload.kategori_q;
+            safePayload.keterangan = `[Kategori: ${cat}] ${safePayload.keterangan || ''}`.trim();
+            safePayload.kategori_q = 'Q1';
+          }
+          await supabase.from('rtj').insert([safePayload]);
+        }
       } catch (err) {
         console.warn('Supabase sync insert failed:', err.message);
       }
@@ -1103,8 +1176,25 @@ export const db = {
 
   async updateRTJ(id, data, user) {
     const store = loadStore();
-    const index = store.rtj.findIndex(r => r.id === id);
-    if (index === -1) return null;
+    let index = store.rtj.findIndex(r => r.id === id);
+
+    // If not in local cache, try fetching from Supabase
+    if (index === -1 && supabase) {
+      try {
+        const { data: supaRow } = await supabase.from('rtj').select('*').eq('id', id).maybeSingle();
+        if (supaRow) {
+          store.rtj.push(supaRow);
+          index = store.rtj.length - 1;
+        }
+      } catch (err) {
+        console.warn('Supabase fetch in updateRTJ failed:', err.message);
+      }
+    }
+
+    if (index === -1) {
+      console.warn(`[updateRTJ] Record id ${id} not found.`);
+      return null;
+    }
 
     const oldRecord = { ...store.rtj[index] };
     const oldStatus = oldRecord.status_rtj;
@@ -1178,7 +1268,38 @@ export const db = {
 
     if (supabase) {
       try {
-        await supabase.from('rtj').update(updatedRTJ).eq('id', id);
+        const payloadToSync = { ...updatedRTJ };
+        delete payloadToSync.id;
+        delete payloadToSync.history;
+        delete payloadToSync.created_at;
+
+        const { error: supaErr } = await supabase.from('rtj').update(payloadToSync).eq('id', id);
+        if (supaErr) {
+          console.warn('Supabase sync update with full payload failed, attempting safe fallback:', supaErr.message);
+          const baseCols = [
+            'kategori_q', 'tanggal_service', 'no_wo', 'no_polisi',
+            'nama_customer', 'no_hp', 'model', 'service', 'sa', 'fo',
+            'teknisi', 'km_service', 'tanggal_rtj', 'batas_periode_rtj',
+            'status_rtj', 'detail_kendala', 'keterangan', 'updated_at'
+          ];
+          const safePayload = {};
+          for (const col of baseCols) {
+            if (payloadToSync[col] !== undefined) safePayload[col] = payloadToSync[col];
+          }
+
+          if (safePayload.kategori_q && !['Q1', 'Q2', 'Q3', 'Q4', 'Q5'].includes(safePayload.kategori_q)) {
+            const cat = safePayload.kategori_q;
+            if (!safePayload.keterangan?.includes(`[Kategori: ${cat}]`)) {
+              safePayload.keterangan = `[Kategori: ${cat}] ${safePayload.keterangan || ''}`.trim();
+            }
+            safePayload.kategori_q = 'Q1';
+          }
+
+          const { error: fallbackErr } = await supabase.from('rtj').update(safePayload).eq('id', id);
+          if (fallbackErr) {
+            console.warn('Supabase fallback update error:', fallbackErr.message);
+          }
+        }
       } catch (err) {
         console.warn('Supabase sync update failed:', err.message);
       }

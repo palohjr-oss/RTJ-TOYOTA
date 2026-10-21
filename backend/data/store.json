@@ -226,10 +226,10 @@
     {
       "id": "e6abd099-8f37-4b03-91e6-561e38ebd970",
       "no_urut": 17,
-      "kategori_q": "Q1",
+      "kategori_q": "Tidak Diangkat",
       "tanggal_service": "2026-08-21",
       "no_wo": "WO/2026/00017",
-      "no_polisi": "B1144KOJ",
+      "no_polisi": "B1424KO",
       "nama_customer": "LEONARDO DAVID YULIANDY JOHANNES",
       "no_hp": "",
       "model": "AVANZA VVTI",
@@ -242,9 +242,17 @@
       "batas_periode_rtj": null,
       "status_rtj": "Pending",
       "detail_kendala": "KELUHAN: BUNYI MUNCUL DIBAWAH MOBIL BUKAN BUNYI DARI BERING TAPI DARI GARDAN YANG ADA DIBAGIAN BAWAH MOBIL",
-      "keterangan": "BELUM TERKKOMFIRMASI",
+      "keterangan": "BELUM TERKOMFIRMASI",
       "created_at": "2026-09-12T07:01:44.109Z",
-      "updated_at": "2026-09-12T07:01:44.109Z"
+      "updated_at": "2026-10-21T02:27:29.955Z",
+      "cabang": "BJM",
+      "recovery_steps": {
+        "recovery": "Selesai"
+      },
+      "tanggal_fu_1": "2026-08-27",
+      "jam_fu_1": "09:30",
+      "tanggal_fu_2": "2026-08-28",
+      "jam_fu_2": "14:15"
     },
     {
       "id": "476db272-0152-4025-bf6b-1523db393015",
@@ -878,5 +886,44 @@
     }
   ],
   "rtj_initialized": true,
-  "notifications": []
+  "notifications": [
+    {
+      "id": "b2e6c32e-eed3-406d-b0b4-d95f627af4c0",
+      "type": "update",
+      "title": "Data RTJ Diperbarui",
+      "message": "LEONARDO DAVID YULIANDY JOHANNES (B1424KO) diperbarui oleh Admin",
+      "details": {
+        "id": "e6abd099-8f37-4b03-91e6-561e38ebd970",
+        "no_wo": "WO/2026/00017",
+        "nama_customer": "LEONARDO DAVID YULIANDY JOHANNES",
+        "no_polisi": "B1424KO",
+        "kategori_q": "Tidak Diangkat",
+        "status_rtj": "Pending"
+      },
+      "created_by": "Admin",
+      "created_at": "2026-10-21T02:27:29.956Z",
+      "read_by": [
+        "u-1"
+      ]
+    },
+    {
+      "id": "801546b2-4243-4ea6-9702-a0147922884d",
+      "type": "update",
+      "title": "Data RTJ Diperbarui",
+      "message": "LEONARDO DAVID YULIANDY JOHANNES (B1424KO) diperbarui oleh Admin",
+      "details": {
+        "id": "e6abd099-8f37-4b03-91e6-561e38ebd970",
+        "no_wo": "WO/2026/00017",
+        "nama_customer": "LEONARDO DAVID YULIANDY JOHANNES",
+        "no_polisi": "B1424KO",
+        "kategori_q": "FIR",
+        "status_rtj": "Pending"
+      },
+      "created_by": "Admin",
+      "created_at": "2026-10-21T02:15:41.020Z",
+      "read_by": [
+        "u-1"
+      ]
+    }
+  ]
 }

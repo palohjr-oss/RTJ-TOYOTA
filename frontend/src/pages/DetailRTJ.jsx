@@ -85,6 +85,10 @@ export default function DetailRTJ() {
         tanggal_service: data.tanggal_service,
         tanggal_rtj: data.tanggal_rtj,
         batas_periode_rtj: data.batas_periode_rtj || '',
+        tanggal_fu_1: data.tanggal_fu_1 || '',
+        jam_fu_1: data.jam_fu_1 || '',
+        tanggal_fu_2: data.tanggal_fu_2 || '',
+        jam_fu_2: data.jam_fu_2 || '',
         status_rtj: data.status_rtj,
         detail_kendala: data.detail_kendala || '',
         keterangan: data.keterangan || '',
@@ -321,6 +325,21 @@ export default function DetailRTJ() {
               </div>
             </div>
 
+            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
+              <div className="bg-slate-50 p-2 rounded-xl border border-slate-100">
+                <span className="text-[10px] font-bold text-slate-500 uppercase block">Follow-Up 1</span>
+                <p className="font-semibold text-slate-800 text-xs mt-0.5">
+                  {data.tanggal_fu_1 ? `${data.tanggal_fu_1} ${data.jam_fu_1 ? `(${data.jam_fu_1})` : ''}` : '-'}
+                </p>
+              </div>
+              <div className="bg-slate-50 p-2 rounded-xl border border-slate-100">
+                <span className="text-[10px] font-bold text-slate-500 uppercase block">Follow-Up 2</span>
+                <p className="font-semibold text-slate-800 text-xs mt-0.5">
+                  {data.tanggal_fu_2 ? `${data.tanggal_fu_2} ${data.jam_fu_2 ? `(${data.jam_fu_2})` : ''}` : '-'}
+                </p>
+              </div>
+            </div>
+
             <div>
               <span className="text-slate-400 font-medium">Detail Kendala</span>
               <p className="text-slate-700 bg-slate-50 p-2.5 rounded-xl mt-1 border border-slate-100 leading-relaxed">
@@ -519,6 +538,42 @@ export default function DetailRTJ() {
                 type="text"
                 value={editFormData.no_hp || ''}
                 onChange={(e) => setEditFormData({ ...editFormData, no_hp: e.target.value })}
+                className="w-full text-xs rounded-xl border border-slate-200 p-2.5"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Tanggal Follow-Up 1</label>
+              <input
+                type="date"
+                value={editFormData.tanggal_fu_1 || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, tanggal_fu_1: e.target.value })}
+                className="w-full text-xs rounded-xl border border-slate-200 p-2.5"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Jam Follow-Up 1</label>
+              <input
+                type="time"
+                value={editFormData.jam_fu_1 || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, jam_fu_1: e.target.value })}
+                className="w-full text-xs rounded-xl border border-slate-200 p-2.5"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Tanggal Follow-Up 2</label>
+              <input
+                type="date"
+                value={editFormData.tanggal_fu_2 || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, tanggal_fu_2: e.target.value })}
+                className="w-full text-xs rounded-xl border border-slate-200 p-2.5"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Jam Follow-Up 2</label>
+              <input
+                type="time"
+                value={editFormData.jam_fu_2 || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, jam_fu_2: e.target.value })}
                 className="w-full text-xs rounded-xl border border-slate-200 p-2.5"
               />
             </div>

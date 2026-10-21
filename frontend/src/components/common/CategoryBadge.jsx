@@ -28,6 +28,30 @@ const categoryConfig = {
   Q6: {
     bg: 'bg-rose-50 text-rose-700 border-rose-200',
     title: 'Perlu Follow-up'
+  },
+  'Tidak Diangkat': {
+    bg: 'bg-amber-100 text-amber-900 border-amber-300',
+    title: 'Telepon Tidak Diangkat'
+  },
+  'Tidak Aktif': {
+    bg: 'bg-red-100 text-red-900 border-red-300',
+    title: 'Nomor Tidak Aktif'
+  },
+  'Tidak ada Nada': {
+    bg: 'bg-orange-100 text-orange-900 border-orange-300',
+    title: 'Tidak Ada Nada Sambung'
+  },
+  'Tidak Terhubung': {
+    bg: 'bg-rose-100 text-rose-900 border-rose-300',
+    title: 'Panggilan Tidak Terhubung'
+  },
+  'Tidak Valid': {
+    bg: 'bg-purple-100 text-purple-900 border-purple-300',
+    title: 'Nomor Tidak Valid / Salah'
+  },
+  'Salah Sambung': {
+    bg: 'bg-pink-100 text-pink-900 border-pink-300',
+    title: 'Salah Sambung / Bukan Pemilik'
   }
 };
 

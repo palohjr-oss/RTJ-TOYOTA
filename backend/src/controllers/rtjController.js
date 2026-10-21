@@ -3,7 +3,21 @@ import { db } from '../models/db.js';
 
 // Valid enum values
 const VALID_STATUSES = ['Scheduled', 'Completed', 'Pending', 'Rescheduled'];
-const VALID_CATEGORIES = ['FIR', 'Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6'];
+const VALID_CATEGORIES = [
+  'FIR',
+  'Q1',
+  'Q2',
+  'Q3',
+  'Q4',
+  'Q5',
+  'Q6',
+  'Tidak Diangkat',
+  'Tidak Aktif',
+  'Tidak ada Nada',
+  'Tidak Terhubung',
+  'Tidak Valid',
+  'Salah Sambung'
+];
 
 // Normalize column header keys
 function normalizeKey(str) {
@@ -105,15 +119,67 @@ export const getRTJById = async (req, res) => {
 
 export const createRTJ = async (req, res) => {
   try {
-    const { nama_customer, no_polisi, tanggal_service, status_rtj, kategori_q, no_hp, model, unit, service, sa, fo, teknisi, km_service, tanggal_rtj, batas_periode_rtj, detail_kendala, keterangan } = req.body;
+    const {
+      nama_customer,
+      no_polisi,
+      tanggal_service,
+      status_rtj,
+      kategori_q,
+      no_hp,
+      model,
+      unit,
+      service,
+      sa,
+      fo,
+      teknisi,
+      km_service,
+      tanggal_rtj,
+      batas_periode_rtj,
+      cabang,
+      tanggal_fu_1,
+      jam_fu_1,
+      tanggal_fu_2,
+      jam_fu_2,
+      detail_kendala,
+      keterangan,
+      hasil_idi,
+      improvement,
+      recovery_steps
+    } = req.body;
+
     if (!nama_customer || !no_polisi || !tanggal_service) {
       return res.status(400).json({ success: false, message: 'Nama Customer, No. Polisi, dan Tanggal Service wajib diisi.' });
     }
-    const created = await db.createRTJ({ nama_customer, no_polisi, tanggal_service, status_rtj: status_rtj || 'Scheduled', kategori_q: kategori_q || 'Q1', no_hp, model: model || unit || 'Toyota', service: service || '', sa, fo, teknisi: teknisi || '-', km_service, tanggal_rtj, batas_periode_rtj, detail_kendala, keterangan }, req.user);
+    const created = await db.createRTJ({
+      nama_customer,
+      no_polisi,
+      tanggal_service,
+      status_rtj: status_rtj || 'Scheduled',
+      kategori_q: kategori_q || 'Q1',
+      no_hp,
+      model: model || unit || 'Toyota',
+      service: service || '',
+      sa,
+      fo,
+      teknisi: teknisi || '-',
+      cabang: cabang || 'BJM',
+      km_service,
+      tanggal_rtj,
+      batas_periode_rtj,
+      tanggal_fu_1,
+      jam_fu_1,
+      tanggal_fu_2,
+      jam_fu_2,
+      detail_kendala,
+      keterangan,
+      hasil_idi,
+      improvement,
+      recovery_steps
+    }, req.user);
     return res.status(201).json({ success: true, message: 'Data RTJ baru berhasil disimpan.', data: created });
   } catch (error) {
     console.error('createRTJ error:', error);
-    return res.status(500).json({ success: false, message: 'Gagal menambahkan data RTJ.' });
+    return res.status(500).json({ success: false, message: error.message || 'Gagal menambahkan data RTJ.' });
   }
 };
 
@@ -127,7 +193,7 @@ export const updateRTJ = async (req, res) => {
     return res.json({ success: true, message: 'Data RTJ berhasil diperbarui.', data: updated });
   } catch (error) {
     console.error('updateRTJ error:', error);
-    return res.status(500).json({ success: false, message: 'Gagal memperbarui data RTJ.' });
+    return res.status(500).json({ success: false, message: error.message || 'Gagal memperbarui data RTJ.' });
   }
 };
 

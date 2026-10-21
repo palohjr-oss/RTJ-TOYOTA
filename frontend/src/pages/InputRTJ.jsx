@@ -26,7 +26,7 @@ const rtjSchema = z.object({
   sa: z.string().min(1, 'Service Advisor (SA) wajib diisi'),
   fo: z.string().min(1, 'Front Officer (FO) wajib diisi'),
   teknisi: z.string().optional(),
-  kategori_q: z.enum(['Q1', 'Q2', 'Q3', 'Q4', 'Q5']),
+  kategori_q: z.string().min(1, 'Kategori wajib dipilih'),
   tanggal_service: z.string().min(1, 'Tanggal Service wajib diisi'),
   km_service: z.coerce.number().min(0, 'KM Service tidak boleh negatif').optional(),
   tanggal_rtj: z.string().min(1, 'Tanggal Mulai Target RTJ wajib diisi'),
@@ -233,17 +233,29 @@ export default function InputRTJ() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Kategori RTJ (Q1–Q5) <span className="text-red-500">*</span>
+                  Kategori RTJ / Respon Follow-Up <span className="text-red-500">*</span>
                 </label>
                 <select
                   {...register('kategori_q')}
                   className="w-full text-xs rounded-xl border border-slate-200 p-3 bg-slate-50/50 font-medium focus:bg-white transition-all"
                 >
-                  <option value="Q1">Q1 - Reminder 1 Bulan / 1.000 KM</option>
-                  <option value="Q2">Q2 - Reminder 6 Bulan / 10.000 KM</option>
-                  <option value="Q3">Q3 - Follow-up Keluhan / Job Pending</option>
-                  <option value="Q4">Q4 - Reminder 12 Bulan / 20.000 KM +</option>
-                  <option value="Q5">Q5 - Inactive Customer Follow-up</option>
+                  <optgroup label="Standar Follow-Up (Q-Series)">
+                    <option value="FIR">FIR - Fix It Right</option>
+                    <option value="Q1">Q1 - Reminder 1 Bulan / 1.000 KM</option>
+                    <option value="Q2">Q2 - Reminder 6 Bulan / 10.000 KM</option>
+                    <option value="Q3">Q3 - Follow-up Keluhan / Job Pending</option>
+                    <option value="Q4">Q4 - Reminder 12 Bulan / 20.000 KM +</option>
+                    <option value="Q5">Q5 - Inactive Customer Follow-up</option>
+                    <option value="Q6">Q6 - Perlu Follow-up</option>
+                  </optgroup>
+                  <optgroup label="Hasil Respon Kontak Customer">
+                    <option value="Tidak Diangkat">Tidak Diangkat</option>
+                    <option value="Tidak Aktif">Tidak Aktif</option>
+                    <option value="Tidak ada Nada">Tidak ada Nada</option>
+                    <option value="Tidak Terhubung">Tidak Terhubung</option>
+                    <option value="Tidak Valid">Tidak Valid</option>
+                    <option value="Salah Sambung">Salah Sambung</option>
+                  </optgroup>
                 </select>
               </div>
 
