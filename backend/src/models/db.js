@@ -1621,14 +1621,16 @@ export const db = {
 
     // Helper to identify branch
     const getBranch = (r) => {
-      if (r.cabang && ['BJM', 'SP', 'BKT'].includes(String(r.cabang).toUpperCase().trim())) {
+      if (r.cabang && ['BJM', 'SP', 'BKT', 'TMS'].includes(String(r.cabang).toUpperCase().trim())) {
         return String(r.cabang).toUpperCase().trim();
       }
       const saUpper = String(r.sa || '').toUpperCase();
       const srvUpper = String(r.service || '').toUpperCase();
       const ketUpper = String(r.keterangan || '').toUpperCase();
-      const comb = `${saUpper} ${srvUpper} ${ketUpper}`;
+      const tipeUpper = String(r.tipe_pekerjaan || r.pekerjaan || '').toUpperCase();
+      const comb = `${saUpper} ${srvUpper} ${ketUpper} ${tipeUpper}`;
 
+      if (comb.includes('TMS') || comb.includes('TOYOTA MOBILE SERVICE') || comb.includes('MOBILE SERVICE')) return 'TMS';
       if (comb.includes('KM2') || comb.includes('KM 2') || comb.includes('KM.2')) return 'SP';
       if (comb.includes('PLH') || comb.includes('PELAIHARI')) return 'SP';
       if (comb.includes('BATUBARA') || comb.includes('BTL') || comb.includes('BATULICIN')) return 'SP';

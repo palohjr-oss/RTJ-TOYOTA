@@ -265,6 +265,7 @@ export default function Dashboard() {
             { key: 'ALL', label: 'ALL GR BJM & SP' },
             { key: 'BJM', label: 'BJM ONLY' },
             { key: 'SP', label: 'SERVICE POINT (SP)' },
+            { key: 'TMS', label: 'TMS' },
           ].map((tab) => (
             <button
               key={tab.key}

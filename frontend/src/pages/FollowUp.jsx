@@ -160,6 +160,7 @@ function EditRowModal({ record, onClose, onSave }) {
               <select className={fieldClass} value={form.cabang} onChange={e => setForm(f => ({...f, cabang: e.target.value}))}>
                 <option value="BJM">BJM (Banjarmasin)</option>
                 <option value="SP">SERVICE POINT (SP)</option>
+                <option value="TMS">TMS (Toyota Mobile Service)</option>
                 <option value="BKT">BKT</option>
               </select>
             </div>
@@ -637,6 +638,7 @@ export default function FollowUp() {
                 <option value="ALL">Semua Cabang</option>
                 <option value="BJM">BJM ONLY</option>
                 <option value="SP">SERVICE POINT (SP)</option>
+                <option value="TMS">TMS</option>
                 <option value="BKT">BKT</option>
               </select>
             </div>
