@@ -173,12 +173,11 @@ function CustomerDetailModal({ record, onClose, qCat }) {
             </div>
           )}
 
-          {/* Progres Recovery — 5 Tahapan */}
+          {/* Progres — 4 Tahapan */}
           <div>
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-3">Progres Recovery</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
+            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-3">Progres Tindak Lanjut</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
               {[
-                { label: 'Recovery', value: steps.recovery },
                 { label: 'Step Intern Discuss', value: steps.stepIntern },
                 { label: 'List Confirm', value: steps.listConfirm },
                 { label: 'Recovery Action', value: steps.recoveryAction },
@@ -259,7 +258,6 @@ function QDetailModal({ qKey, cardInfo, records, onClose }) {
                   <th className="px-3 py-2.5 font-black">No. Polisi / Unit</th>
                   <th className="px-3 py-2.5 font-black">Nama Customer</th>
                   <th className="px-3 py-2.5 font-black">Tipe</th>
-                  <th className="px-3 py-2.5 font-black text-center">Recovery</th>
                   <th className="px-3 py-2.5 font-black text-center">Step Intern</th>
                   <th className="px-3 py-2.5 font-black text-center">List Confirm</th>
                   <th className="px-3 py-2.5 font-black text-center">Recovery Action</th>
@@ -269,7 +267,7 @@ function QDetailModal({ qKey, cardInfo, records, onClose }) {
               <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
                 {paginated.length === 0 ? (
                   <tr>
-                    <td colSpan="9" className="text-center py-12 text-slate-400 font-semibold">
+                    <td colSpan="8" className="text-center py-12 text-slate-400 font-semibold">
                       Tidak ada data untuk kategori {qKey}
                     </td>
                   </tr>
@@ -294,7 +292,6 @@ function QDetailModal({ qKey, cardInfo, records, onClose }) {
                       <td className="px-3 py-2 text-slate-600">
                         {r.model || '-'}
                       </td>
-                      <td className="px-3 py-2 text-center"><StepBadge status={steps.recovery} /></td>
                       <td className="px-3 py-2 text-center"><StepBadge status={steps.stepIntern} /></td>
                       <td className="px-3 py-2 text-center"><StepBadge status={steps.listConfirm} /></td>
                       <td className="px-3 py-2 text-center"><StepBadge status={steps.recoveryAction} /></td>
@@ -880,7 +877,7 @@ export default function Statistik() {
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  Menampilkan unit untuk kategori <b>{activeCard.label} ({activeCard.title})</b>. Klik baris unit untuk melihat detail profil customer & 5 tahapan recovery.
+                  Menampilkan unit untuk kategori <b>{activeCard.label} ({activeCard.title})</b>. Klik baris unit untuk melihat detail profil customer & 4 tahapan alur proses.
                 </p>
               </div>
 
@@ -893,7 +890,7 @@ export default function Statistik() {
               </button>
             </div>
 
-            {/* 5-Column Process Flow Table */}
+            {/* 4-Column Process Flow Table */}
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left border-collapse whitespace-nowrap">
                 <thead>
@@ -902,18 +899,17 @@ export default function Statistik() {
                     <th className="px-3 py-2.5 font-black">No. Polisi / Unit</th>
                     <th className="px-3 py-2.5 font-black">Nama Customer</th>
                     <th className="px-3 py-2.5 font-black text-center">Status RTJ</th>
-                    <th className="px-3 py-2.5 font-black text-center">1. Recovery</th>
-                    <th className="px-3 py-2.5 font-black text-center">2. Step Intern Discuss</th>
-                    <th className="px-3 py-2.5 font-black text-center">3. List Confirm</th>
-                    <th className="px-3 py-2.5 font-black text-center">4. Recovery Action</th>
-                    <th className="px-3 py-2.5 font-black text-center">5. Tindak Lanjut</th>
+                    <th className="px-3 py-2.5 font-black text-center">1. Step Intern Discuss</th>
+                    <th className="px-3 py-2.5 font-black text-center">2. List Confirm</th>
+                    <th className="px-3 py-2.5 font-black text-center">3. Recovery Action</th>
+                    <th className="px-3 py-2.5 font-black text-center">4. Tindak Lanjut</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
                   {isLoading ? (
-                    <tr><td colSpan="9" className="text-center py-12 text-slate-400">Memuat data unit...</td></tr>
+                    <tr><td colSpan="8" className="text-center py-12 text-slate-400">Memuat data unit...</td></tr>
                   ) : displayRecords.length === 0 ? (
-                    <tr><td colSpan="9" className="text-center py-12 text-slate-400 font-semibold">
+                    <tr><td colSpan="8" className="text-center py-12 text-slate-400 font-semibold">
                       Tidak ada unit dalam kategori {activeCard.label} ({activeCard.title}).
                     </td></tr>
                   ) : displayRecords.slice(0, 15).map((r, idx) => {
@@ -942,7 +938,6 @@ export default function Statistik() {
                             {r.status_rtj || 'Pending'}
                           </span>
                         </td>
-                        <td className="px-3 py-2.5 text-center"><StepBadge status={steps.recovery} /></td>
                         <td className="px-3 py-2.5 text-center"><StepBadge status={steps.stepIntern} /></td>
                         <td className="px-3 py-2.5 text-center"><StepBadge status={steps.listConfirm} /></td>
                         <td className="px-3 py-2.5 text-center"><StepBadge status={steps.recoveryAction} /></td>

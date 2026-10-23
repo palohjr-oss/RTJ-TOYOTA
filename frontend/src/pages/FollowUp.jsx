@@ -279,16 +279,15 @@ function EditRowModal({ record, onClose, onSave }) {
             </div>
           </div>
 
-          {/* ── Progres Recovery 5 Tahapan ── */}
+          {/* ── Progres Tahapan Tindak Lanjut (4 Tahapan) ── */}
           <div className="border-t border-slate-100 pt-4">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-3">Progres Recovery (5 Tahapan)</p>
-            <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-3">Progres Tahapan Tindak Lanjut (4 Tahapan)</p>
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
               {[
-                { key: 'recovery', label: '1. Recovery' },
-                { key: 'step_intern', label: '2. Step Intern Discuss' },
-                { key: 'list_confirm', label: '3. List Confirm' },
-                { key: 'recovery_action', label: '4. Recovery Action' },
-                { key: 'tindak_lanjut', label: '5. Tindak Lanjut' },
+                { key: 'step_intern', label: '1. Step Intern Discuss' },
+                { key: 'list_confirm', label: '2. List Confirm' },
+                { key: 'recovery_action', label: '3. Recovery Action' },
+                { key: 'tindak_lanjut', label: '4. Tindak Lanjut' },
               ].map(({ key, label }) => (
                 <div key={key}>
                   <label className={labelClass}>{label}</label>
@@ -551,7 +550,7 @@ export default function FollowUp() {
               <span className="text-xs text-slate-400 font-medium">Wira Toyota Banjarmasin</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black mt-2 tracking-tight">
-              Data Hasil Follow-Up Service Berkala
+              ALL UNIT SERVICE WIRA BANJARMASIN
             </h1>
             <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-xl">
               Sumber data utama seluruh Dashboard & Statistik RTJ. Data dapat di-import dari Excel atau di-export.

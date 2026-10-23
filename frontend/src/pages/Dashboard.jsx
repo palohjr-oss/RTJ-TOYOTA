@@ -282,17 +282,17 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* TARGET & AKTUAL TOP SUMMARY BOXES (Gambar 1 Header) */}
+      {/* TARGET & AKTUAL TOP SUMMARY BOXES (Gambar 2 Header) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Target Box (Orange Tone) */}
+        {/* FIR Rate Box (Orange Tone) */}
         <div className="bg-gradient-to-br from-amber-600 via-orange-600 to-amber-700 rounded-2xl p-4 text-white shadow-lg border border-amber-500/40 relative overflow-hidden">
           <div className="flex items-center justify-between border-b border-white/20 pb-2 mb-3">
             <div className="flex items-center space-x-2">
               <Target className="w-5 h-5 text-amber-200" />
-              <span className="text-sm font-black italic tracking-wide">Target :</span>
+              <span className="text-sm font-bold tracking-wide">Target & FIR Rate</span>
             </div>
             <span className="text-[10px] uppercase font-bold bg-black/30 px-2 py-0.5 rounded-full">
-              Standard KPI
+              STANDARD KPI
             </span>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -311,38 +311,38 @@ export default function Dashboard() {
             <div className="bg-black/20 backdrop-blur-sm rounded-xl p-3 border border-white/10 flex items-center justify-between">
               <div>
                 <span className="text-[11px] font-bold italic text-amber-100 uppercase tracking-wider block">
-                  Target Success Call Rate
+                  FIR Rate
                 </span>
-                <span className="text-xs text-amber-200 font-medium">Tingkat Sambung</span>
+                <span className="text-xs text-amber-200 font-medium">Aktual fix it right</span>
               </div>
               <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-                {baseline.target.successCallRate}
+                {baseline.aktual.firRate}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Aktual Box (Yellow Tone) */}
+        {/* Success Call Rate Box (Yellow Tone) */}
         <div className="bg-gradient-to-br from-yellow-400 via-amber-400 to-yellow-500 rounded-2xl p-4 text-slate-950 shadow-lg border border-yellow-300 relative overflow-hidden">
           <div className="flex items-center justify-between border-b border-slate-900/15 pb-2 mb-3">
             <div className="flex items-center space-x-2">
               <TrendingUp className="w-5 h-5 text-slate-900" />
-              <span className="text-sm font-black italic tracking-wide">Aktual :</span>
+              <span className="text-sm font-bold tracking-wide">Target & Success Call Rate</span>
             </div>
             <span className="text-[10px] uppercase font-bold bg-white/60 px-2 py-0.5 rounded-full text-slate-900">
-              Pencapaian Periode
+              PENCAPAIAN PERIODE
             </span>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-white/60 backdrop-blur-sm rounded-xl p-3 border border-slate-900/10 flex items-center justify-between">
               <div>
                 <span className="text-[11px] font-black italic text-slate-900 uppercase tracking-wider block">
-                  FIR Rate
+                  Target Success Call Rate
                 </span>
-                <span className="text-xs text-slate-700 font-semibold">Aktual fix it right</span>
+                <span className="text-xs text-slate-700 font-semibold">Tingkat Sambung</span>
               </div>
               <div className="text-2xl sm:text-3xl font-black text-slate-950 tracking-tight">
-                {baseline.aktual.firRate}
+                {baseline.target.successCallRate}
               </div>
             </div>
 
