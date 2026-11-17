@@ -516,8 +516,6 @@ export const importExcel = async (req, res) => {
       data: importedItems,
       format_detected: isJuliiFormat ? 'julii-positional' : 'header-based'
     });
-      format_detected: isJuliiFormat ? 'julii-positional' : 'header-based'
-    });
   } catch (error) {
     console.error('importExcel error:', error);
     return res.status(500).json({ success: false, message: `Gagal memproses file Excel: ${error.message}` });
