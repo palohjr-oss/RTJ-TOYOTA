@@ -266,15 +266,17 @@ export default function ImportExcelModal({ isOpen, onClose, onSuccess }) {
                   </p>
                 </div>
               </div>
-              <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+              <div className={`mt-3 grid ${importResult.duplicates > 0 ? 'grid-cols-3' : 'grid-cols-2'} gap-2 text-center text-xs`}>
                 <div className="bg-white p-2 rounded-xl border border-emerald-100">
-                  <span className="text-slate-500">Data Baru</span>
+                  <span className="text-slate-500">Data Berhasil Diimpor</span>
                   <p className="text-lg font-bold text-emerald-600">{importResult.imported}</p>
                 </div>
-                <div className="bg-white p-2 rounded-xl border border-amber-100">
-                  <span className="text-slate-500">Duplikat (Dilewati)</span>
-                  <p className="text-lg font-bold text-amber-600">{importResult.duplicates || 0}</p>
-                </div>
+                {importResult.duplicates > 0 && (
+                  <div className="bg-white p-2 rounded-xl border border-amber-100">
+                    <span className="text-slate-500">Duplikat (Dilewati)</span>
+                    <p className="text-lg font-bold text-amber-600">{importResult.duplicates}</p>
+                  </div>
+                )}
                 <div className="bg-white p-2 rounded-xl border border-rose-100">
                   <span className="text-slate-500">Baris Gagal</span>
                   <p className="text-lg font-bold text-rose-600">{importResult.failed}</p>
