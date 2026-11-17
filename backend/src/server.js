@@ -70,6 +70,7 @@ app.get('/api/dashboard/chart', requireAuth, dashboardController.getChartData);
 // ==========================================
 app.get('/api/rtj/export-template', rtjController.exportTemplate);
 app.post('/api/rtj/import', requireAuth, upload.single('file'), rtjController.importExcel);
+app.post('/api/rtj/bulk-delete', requireAuth, rtjController.bulkDeleteRTJ);
 app.delete('/api/rtj', requireAuth, requireAdmin, rtjController.deleteAllRTJ);
 app.get('/api/rtj', requireAuth, rtjController.getRTJList);
 app.get('/api/rtj/:id', requireAuth, rtjController.getRTJById);

@@ -1471,6 +1471,49 @@ export const db = {
     return deletedCount;
   },
 
+  async bulkDeleteRTJ(ids) {
+    if (!Array.isArray(ids) || ids.length === 0) return 0;
+
+    let supaDeletedCount = 0;
+    if (supabase) {
+      try {
+        try {
+          await supabase.from('rtj_status_history').delete().in('rtj_id', ids);
+        } catch (e) {}
+
+        const { error: delErr, count } = await supabase.from('rtj').delete({ count: 'exact' }).in('id', ids);
+        if (!delErr && count !== null) {
+          supaDeletedCount = count;
+        } else if (delErr) {
+          console.warn('[bulkDeleteRTJ] Supabase delete error:', delErr.message);
+        }
+      } catch (err) {
+        console.warn('Supabase sync bulkDelete failed:', err.message);
+      }
+    }
+
+    const store = loadStore();
+    const idSet = new Set(ids);
+    const beforeCount = store.rtj.length;
+    store.rtj = store.rtj.filter(r => !idSet.has(r.id));
+    store.history = store.history.filter(h => !idSet.has(h.rtj_id));
+
+    store.notifications = store.notifications || [];
+    store.notifications.unshift({
+      id: uuidv4(),
+      type: 'delete',
+      title: 'Data RTJ Dihapus',
+      message: `${ids.length} data RTJ telah dihapus secara massal dari sistem`,
+      created_by: 'System',
+      created_at: new Date().toISOString(),
+      read_by: []
+    });
+    if (store.notifications.length > 100) store.notifications.length = 100;
+
+    saveStore(store);
+    return Math.max(supaDeletedCount, beforeCount - store.rtj.length, ids.length);
+  },
+
   async bulkCreateRTJ(recordsList, user) {
     let highestNo = 0;
     if (supabase) {

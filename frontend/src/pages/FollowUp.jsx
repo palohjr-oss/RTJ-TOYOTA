@@ -13,7 +13,9 @@ import {
   Trash2,
   X,
   Save,
-  Plus
+  Plus,
+  CheckSquare,
+  Loader2
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import api from '../api/client';
@@ -343,6 +345,8 @@ export default function FollowUp() {
 
   const [showImport, setShowImport] = useState(false);
   const [editRecord, setEditRecord] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [isDeletingBulk, setIsDeletingBulk] = useState(false);
 
   // Fetch filter options
   const { data: chartData } = useQuery({
@@ -429,9 +433,73 @@ export default function FollowUp() {
   const scrRate = totalFU > 0 ? ((totalTerhubung / totalFU) * 100).toFixed(0) + '%' : '0%';
   const firRate = totalTerhubung > 0 ? ((totalFIR / totalTerhubung) * 100).toFixed(0) + '%' : '0%';
 
+  // ── Selection & Bulk Delete Logic ──
+  const isPageSelected = paginatedRecords.length > 0 && paginatedRecords.every(r => selectedIds.includes(r.id));
+  const isAllFilteredSelected = filteredRecords.length > 0 && filteredRecords.every(r => selectedIds.includes(r.id));
+
+  const handleToggleSelect = (id) => {
+    if (!id) return;
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleToggleSelectPage = () => {
+    if (isPageSelected) {
+      const pageIds = new Set(paginatedRecords.map(r => r.id));
+      setSelectedIds(prev => prev.filter(id => !pageIds.has(id)));
+    } else {
+      const newSelected = new Set(selectedIds);
+      paginatedRecords.forEach(r => {
+        if (r.id) newSelected.add(r.id);
+      });
+      setSelectedIds(Array.from(newSelected));
+    }
+  };
+
+  const handleSelectAllFiltered = () => {
+    if (isAllFilteredSelected) {
+      setSelectedIds([]);
+    } else {
+      const allIds = filteredRecords.map(r => r.id).filter(Boolean);
+      setSelectedIds(allIds);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    const count = selectedIds.length;
+    if (!window.confirm(`Yakin ingin menghapus ${count} data Follow-Up yang dipilih? Tindakan ini tidak dapat dibatalkan.`)) {
+      return;
+    }
+
+    setIsDeletingBulk(true);
+    try {
+      try {
+        await api.post('/rtj/bulk-delete', { ids: selectedIds });
+      } catch (err) {
+        await Promise.all(selectedIds.map(id => api.delete(`/rtj/${id}`)));
+      }
+
+      setSelectedIds([]);
+      queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-chart-options'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-chart-analytics'] });
+      queryClient.invalidateQueries({ queryKey: ['rtj-list'] });
+      refetch();
+      fetchNotifications(true);
+      alert(`✅ Berhasil menghapus ${count} data Follow-Up.`);
+    } catch (error) {
+      alert(error.response?.data?.message || 'Gagal menghapus beberapa data.');
+    } finally {
+      setIsDeletingBulk(false);
+    }
+  };
+
   const handleResetFilter = () => {
     setSearch(''); setCabang('ALL'); setRespon('ALL'); setKategoriQ('ALL'); setPage(1);
     setSelectedPeriod('ALL'); setPeriodeMulai(''); setPeriodeSelesai('');
+    setSelectedIds([]);
   };
 
   const handleImportSuccess = () => {
@@ -669,12 +737,78 @@ export default function FollowUp() {
           </div>
         </div>
 
+        {/* ── Bulk Selection Bar ── */}
+        {selectedIds.length > 0 && (
+          <div className="bg-slate-900 text-white px-5 py-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-xl border border-slate-700 animate-in fade-in duration-200">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 rounded-xl bg-blue-500/20 flex items-center justify-center border border-blue-400/30">
+                <CheckSquare className="w-4 h-4 text-blue-400" />
+              </div>
+              <div>
+                <span className="text-xs font-black text-white">{selectedIds.length} Data Terpilih</span>
+                <span className="text-[11px] text-slate-300 ml-2">
+                  (dari {filteredRecords.length} data sesuai filter)
+                </span>
+              </div>
+              {filteredRecords.length > paginatedRecords.length && (
+                <button
+                  type="button"
+                  onClick={handleSelectAllFiltered}
+                  className="text-xs text-blue-300 hover:text-blue-200 underline font-semibold ml-2 transition-colors cursor-pointer"
+                >
+                  {isAllFilteredSelected 
+                    ? 'Batalkan Pilih Semua' 
+                    : `Pilih Semua (${filteredRecords.length}) Data Filter`}
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                onClick={() => setSelectedIds([])}
+                disabled={isDeletingBulk}
+                className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition-colors"
+              >
+                Batal Pilih
+              </button>
+              <button
+                type="button"
+                onClick={handleBulkDelete}
+                disabled={isDeletingBulk}
+                className="flex items-center space-x-1.5 px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-95 text-xs font-bold text-white shadow-md transition-all disabled:opacity-50"
+              >
+                {isDeletingBulk ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Menghapus...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Hapus ({selectedIds.length}) Data Terpilih</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* ── Main Table ── */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-[11px] text-left border-collapse whitespace-nowrap">
               <thead>
                 <tr className="bg-slate-900 text-white font-bold border-b border-slate-700 uppercase tracking-wider text-[10px]">
+                  <th className="px-3 py-2.5 text-center w-8">
+                    <input
+                      type="checkbox"
+                      checked={isPageSelected}
+                      onChange={handleToggleSelectPage}
+                      className="w-4 h-4 rounded border-slate-400 text-blue-600 focus:ring-blue-500 cursor-pointer accent-blue-600"
+                      title={isPageSelected ? "Batalkan pilihan halaman ini" : "Pilih semua di halaman ini"}
+                    />
+                  </th>
                   <th className="px-3 py-2.5 text-center">No</th>
                   <th className="px-3 py-2.5">No. WO</th>
                   <th className="px-3 py-2.5">Tanggal</th>
@@ -698,13 +832,13 @@ export default function FollowUp() {
               <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
                 {isLoading ? (
                   <tr>
-                    <td colSpan="18" className="text-center py-10 text-slate-400">
+                    <td colSpan="19" className="text-center py-10 text-slate-400">
                       Memuat data follow-up...
                     </td>
                   </tr>
                 ) : paginatedRecords.length === 0 ? (
                   <tr>
-                    <td colSpan="18" className="text-center py-12 text-slate-400">
+                    <td colSpan="19" className="text-center py-12 text-slate-400">
                       <div className="flex flex-col items-center">
                         <Filter className="w-8 h-8 mb-2 text-slate-300" />
                         <p className="font-semibold">Tidak ada data follow-up sesuai filter</p>
@@ -716,10 +850,21 @@ export default function FollowUp() {
                   paginatedRecords.map((r, idx) => {
                     const isContacted = r.status_rtj === 'Completed' || r.status_rtj === 'Rescheduled';
                     const isFIR = r.status_rtj === 'Completed';
-                    const rowBg = !isContacted ? 'bg-rose-50/40 hover:bg-rose-50/80' : 'hover:bg-slate-50';
+                    const isSelected = selectedIds.includes(r.id);
+                    const rowBg = isSelected
+                      ? 'bg-blue-100/70 hover:bg-blue-100 font-semibold'
+                      : (!isContacted ? 'bg-rose-50/40 hover:bg-rose-50/80' : 'hover:bg-slate-50');
 
                     return (
                       <tr key={r.id || idx} className={`${rowBg} transition-colors`}>
+                        <td className="px-3 py-2 text-center">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleToggleSelect(r.id)}
+                            className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer accent-blue-600"
+                          />
+                        </td>
                         <td className="px-3 py-2 text-center font-bold text-slate-500">
                           {(page - 1) * limit + idx + 1}
                         </td>

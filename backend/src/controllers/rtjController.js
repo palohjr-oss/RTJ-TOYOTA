@@ -219,6 +219,20 @@ export const deleteAllRTJ = async (req, res) => {
   }
 };
 
+export const bulkDeleteRTJ = async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ success: false, message: 'Daftar ID data tidak valid atau kosong.' });
+    }
+    const count = await db.bulkDeleteRTJ(ids);
+    return res.json({ success: true, message: `Berhasil menghapus ${count} data RTJ terpilih.`, count });
+  } catch (error) {
+    console.error('bulkDeleteRTJ error:', error);
+    return res.status(500).json({ success: false, message: 'Gagal menghapus data RTJ secara massal.' });
+  }
+};
+
 // ─── Import Excel ─────────────────────────────────────────────────────────────
 // Mendukung DUA format:
 // 1. Format JULII / Wira Toyota GW (tanpa header, berdasarkan posisi kolom)
